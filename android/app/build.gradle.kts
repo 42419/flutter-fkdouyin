@@ -31,10 +31,10 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = "upload"
-            keyPassword = "123456"
+            keyAlias = "yunfei"
+            keyPassword = "yunfei"
             storeFile = file("upload-keystore.jks")
-            storePassword = "123456"
+            storePassword = "yunfei"
         }
     }
 
