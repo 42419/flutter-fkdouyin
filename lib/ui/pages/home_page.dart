@@ -43,15 +43,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _download(VideoModel video) async {
+  void _download(String url, String filename) async {
     if (_downloading) return;
     setState(() => _downloading = true);
     try {
-      if (video.playUrl == null) throw Exception('无可下载地址');
       await _downloadService.download(
-        video.playUrl!,
+        url,
         '/storage/emulated/0/Download/fkdouyin',
-        filename: '${video.awemeId}.mp4',
+        filename: filename,
         onProgress: (p) => context.read<VideoProvider>().setDownloadProgress(p),
       );
       if (mounted) {
@@ -68,6 +67,65 @@ class _HomePageState extends State<HomePage> {
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
+  }
+
+  void _showDownloadOptions(VideoModel video) {
+    if (video.downloadOptions.isEmpty) {
+      if (video.playUrl != null) {
+         _download(video.playUrl!, '${video.awemeId}.mp4');
+         return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无可用下载链接')));
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('选择下载清晰度', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: video.downloadOptions.map((option) => ListTile(
+                    leading: const Icon(Icons.video_file_outlined),
+                    title: Text('${option.quality} (${option.resolution})'),
+                    subtitle: Text('${_formatSize(option.size)} • ${option.frameRate}FPS • ${option.format}'),
+                    trailing: const Icon(Icons.download),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _download(option.url, '${video.awemeId}_${option.quality}.mp4');
+                    },
+                  )).toList(),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes <= 0) return '未知大小';
+    const suffixes = ["B", "KB", "MB", "GB", "TB"];
+    var i = 0;
+    double size = bytes.toDouble();
+    while (size > 1024 && i < suffixes.length - 1) {
+      size /= 1024;
+      i++;
+    }
+    return '${size.toStringAsFixed(1)} ${suffixes[i]}';
   }
 
   void _clearHistory() async {
@@ -200,14 +258,14 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-          if (video != null)
+            if (video != null)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: _VideoDetailCard(
                   video: video,
                   progress: provider.progress,
-                  onDownload: () => _download(video),
+                  onDownload: () => _showDownloadOptions(video),
                   isDownloading: _downloading,
                 ),
               ),
@@ -288,6 +346,37 @@ class _VideoDetailCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Author Info
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundImage: video.authorAvatar != null ? NetworkImage(video.authorAvatar!) : null,
+                  child: video.authorAvatar == null ? const Icon(Icons.person) : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        video.author ?? '未知作者',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      if (video.authorSignature != null && video.authorSignature!.isNotEmpty)
+                        Text(
+                          video.authorSignature!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Video Content
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -296,12 +385,12 @@ class _VideoDetailCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
                       video.coverUrl!,
-                      width: 80,
-                      height: 110,
+                      width: 100,
+                      height: 130,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        width: 80,
-                        height: 110,
+                        width: 100,
+                        height: 130,
                         color: Colors.grey[300],
                         child: const Icon(Icons.broken_image),
                       ),
@@ -314,36 +403,21 @@ class _VideoDetailCard extends StatelessWidget {
                     children: [
                       Text(
                         video.title ?? '无标题',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                        maxLines: 2,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      Row(
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
                         children: [
-                          const Icon(Icons.person, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              video.author ?? '未知作者',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                          _buildStat(Icons.favorite, video.statistics.diggCount),
+                          _buildStat(Icons.comment, video.statistics.commentCount),
+                          _buildStat(Icons.star, video.statistics.collectCount),
+                          _buildStat(Icons.share, video.statistics.shareCount),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      if (video.durationMs != null)
-                        Row(
-                          children: [
-                            const Icon(Icons.timer, size: 16, color: Colors.grey),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${(video.durationMs! / 1000).round()} 秒',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
                     ],
                   ),
                 ),
@@ -360,13 +434,34 @@ class _VideoDetailCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: isDownloading ? null : onDownload,
                   icon: const Icon(Icons.download),
-                  label: Text(isDownloading ? '下载中...' : '下载无水印视频'),
+                  label: Text(isDownloading ? '下载中...' : '下载视频 (${video.downloadOptions.length}个源)'),
                 ),
               ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildStat(IconData icon, int count) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: Colors.grey),
+        const SizedBox(width: 4),
+        Text(
+          _formatCount(count),
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+
+  String _formatCount(int count) {
+    if (count > 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}w';
+    }
+    return count.toString();
   }
 }
 

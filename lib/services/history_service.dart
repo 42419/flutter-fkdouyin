@@ -20,7 +20,7 @@ class HistoryService {
       final file = await _historyFile();
       final txt = await file.readAsString();
       final data = jsonDecode(txt) as List;
-      _items = data.map((e) => VideoModel.fromApi(e as Map<String, dynamic>)).toList();
+      _items = data.map((e) => VideoModel.fromJson(e as Map<String, dynamic>)).toList();
     } catch (_) {
       _items = [];
     }
@@ -39,14 +39,7 @@ class HistoryService {
 
   Future<void> _persist() async {
     final file = await _historyFile();
-    final list = _items.map((e) => {
-          'aweme_id': e.awemeId,
-          'title': e.title,
-          'author': e.author,
-          'cover_url': e.coverUrl,
-          'play_url': e.playUrl,
-          'duration_ms': e.durationMs,
-        }).toList();
+    final list = _items.map((e) => e.toJson()).toList();
     await file.writeAsString(jsonEncode(list));
   }
 }
