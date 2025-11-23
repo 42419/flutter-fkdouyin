@@ -8,6 +8,7 @@ import '../../services/download_service.dart';
 import '../../core/rate_limiter.dart';
 import '../../models/video_model.dart';
 
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class HomePage extends StatefulWidget {
@@ -47,6 +48,10 @@ class _HomePageState extends State<HomePage> {
 
   void _download(String url, String filename) async {
     if (_downloading) return;
+    
+    // 强制收起键盘，防止焦点跳动
+    FocusScope.of(context).unfocus();
+    
     setState(() => _downloading = true);
     try {
       await _downloadService.download(
@@ -55,8 +60,10 @@ class _HomePageState extends State<HomePage> {
         onProgress: (p) => context.read<VideoProvider>().setDownloadProgress(p),
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('下载完成并保存到相册')),
+        Fluttertoast.showToast(
+          msg: "下载完成并保存到相册",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
         );
       }
     } catch (e) {
@@ -68,8 +75,10 @@ class _HomePageState extends State<HomePage> {
         } else if (e.toString().contains('未授予')) {
           msg = '需要权限才能保存视频';
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
+        Fluttertoast.showToast(
+          msg: msg,
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
         );
       }
     } finally {
@@ -106,7 +115,7 @@ class _HomePageState extends State<HomePage> {
          _download(video.playUrl!, '${video.awemeId}.mp4');
          return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无可用下载链接')));
+      Fluttertoast.showToast(msg: "无可用下载链接");
       return;
     }
 
