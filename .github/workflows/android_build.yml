@@ -53,7 +53,8 @@ jobs:
           NEW_VER="${MAJ}.${MIN}.${NEW_PATCH}+${NEW_BUILD}"
           echo "Old version: $OLD_VER -> New version: $NEW_VER"
           # 5. 替换 pubspec.yaml 中的 version 行 (保持其它内容不变)
-          perl -0777 -pe "s/version:\s*$OLD_VER/version: $NEW_VER/" -i pubspec.yaml
+          # 使用 \Q...\E 来转义 OLD_VER 中的特殊字符（如 +）
+          perl -0777 -pe "s/version:\s*\Q$OLD_VER\E/version: $NEW_VER/" -i pubspec.yaml
           # 6. Git 配置与提交 (包含 pubspec.lock 并仅在有暂存修改时推送)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
