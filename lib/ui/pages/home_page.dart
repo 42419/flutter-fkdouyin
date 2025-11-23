@@ -19,6 +19,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   final _history = HistoryService();
   late DownloadService _downloadService;
   bool _downloading = false;
@@ -26,8 +27,17 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _history.load();
+    _history.load().then((_) {
+      if (mounted) setState(() {});
+    });
     _downloadService = DownloadService(RateLimiter(maxRequests: 5));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   void _parse() async {
@@ -36,7 +46,7 @@ class _HomePageState extends State<HomePage> {
     if (input.isEmpty) return;
     
     // 收起键盘
-    FocusScope.of(context).unfocus();
+    _focusNode.unfocus();
     
     await provider.parse(input);
     final video = provider.current;
@@ -50,7 +60,7 @@ class _HomePageState extends State<HomePage> {
     if (_downloading) return;
     
     // 强制收起键盘，防止焦点跳动
-    FocusScope.of(context).unfocus();
+    _focusNode.unfocus();
     
     setState(() => _downloading = true);
     try {
@@ -110,6 +120,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showDownloadOptions(VideoModel video) {
+    _focusNode.unfocus();
     if (video.downloadOptions.isEmpty) {
       if (video.playUrl != null) {
          _download(video.playUrl!, '${video.awemeId}.mp4');
@@ -241,6 +252,7 @@ class _HomePageState extends State<HomePage> {
                         Expanded(
                           child: TextField(
                             controller: _controller,
+                            focusNode: _focusNode,
                             decoration: const InputDecoration(
                               hintText: '粘贴抖音视频链接...',
                               border: InputBorder.none,
