@@ -26,54 +26,41 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Get last commit message
-        id: checkmsg
-        run: |
-          LAST_MSG=$(git log -1 --pretty=%B)
-          echo "last_msg<<EOF" >> $GITHUB_OUTPUT
-          echo "$LAST_MSG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Bump patch version (if not bumped by workflow)
-        if: "!contains(steps.checkmsg.outputs.last_msg, 'chore: bump version')"
-        run: |
-          set -eux
-          # 1. 读取并清理 version 行 (去除 CR)
-          RAW_LINE=$(grep -E '^version:' pubspec.yaml | head -n1 | tr -d '\r')
-          OLD_VER=$(printf '%s' "$RAW_LINE" | awk '{print $2}')
-          # 2. 拆分版本号 (name + build)
-          NAME_VER=${OLD_VER%%+*}
-          BUILD_PART=${OLD_VER#*+}
-          if [ "$BUILD_PART" = "$OLD_VER" ]; then BUILD_PART=0; fi
-          # 3. 拆分主版本
-          IFS='.' read -r MAJ MIN PATCH <<< "$NAME_VER"
-          # 4. 递增 patch 与 build
-          NEW_PATCH=$((PATCH+1))
-          NEW_BUILD=$((BUILD_PART+1))
-          NEW_VER="${MAJ}.${MIN}.${NEW_PATCH}+${NEW_BUILD}"
-          echo "Old version: $OLD_VER -> New version: $NEW_VER"
-          # 5. 替换 pubspec.yaml 中的 version 行 (保持其它内容不变)
-          # 使用 \Q...\E 来转义 OLD_VER 中的特殊字符（如 +）
-          perl -0777 -pe "s/version:\s*\Q$OLD_VER\E/version: $NEW_VER/" -i pubspec.yaml
-          # 6. Git 配置与提交 (包含 pubspec.lock 并仅在有暂存修改时推送)
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pubspec.yaml pubspec.lock || true
-          if git diff --cached --quiet; then
-            echo "No version change to commit"
-          else
-            git commit -m "chore: bump version to $NEW_VER"
-            git push origin HEAD:main
-          fi
-
-      - name: Extract version
+      - name: Calculate Version
         id: version
         run: |
-          VER=$(grep -E '^version:' pubspec.yaml | head -n1 | tr -d '\r' | awk '{print $2}')
-          echo "version=$VER" >> $GITHUB_OUTPUT
+          git fetch --tags
+          # 获取最新的 tag，例如 v1.0.4
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "")
+          
+          # 读取 pubspec.yaml 的版本 (去除 +build)
+          YAML_VER=$(grep -E '^version:' pubspec.yaml | head -n1 | awk '{print $2}' | cut -d'+' -f1)
+          if [ -z "$YAML_VER" ]; then YAML_VER="1.0.0"; fi
+          
+          if [ -z "$LAST_TAG" ]; then
+            # 无 tag，直接使用 yaml 版本
+            NEW_VER="$YAML_VER"
+          else
+            # 有 tag，比较
+            TAG_VER=${LAST_TAG#v}
+            
+            # 使用 sort -V 比较版本
+            # 如果 YAML_VER > TAG_VER，说明用户手动升级了，使用 YAML_VER
+            if [ "$(printf '%s\n%s' "$TAG_VER" "$YAML_VER" | sort -V | tail -n1)" = "$YAML_VER" ] && [ "$TAG_VER" != "$YAML_VER" ]; then
+               NEW_VER="$YAML_VER"
+            else
+               # 否则自动递增 patch
+               IFS='.' read -r MAJ MIN PAT <<< "$TAG_VER"
+               NEW_PAT=$((PAT + 1))
+               NEW_VER="${MAJ}.${MIN}.${NEW_PAT}"
+            fi
+          fi
+          
+          echo "Calculated version: $NEW_VER"
+          echo "version_name=$NEW_VER" >> $GITHUB_OUTPUT
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --build-name=${{ steps.version.outputs.version_name }} --build-number=${{ github.run_number }}
 
       - name: Generate changelog
         id: changelog
@@ -91,14 +78,14 @@ jobs:
 
       - name: Create git tag
         run: |
-          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
+          git tag -a "v${{ steps.version.outputs.version_name }}" -m "Release v${{ steps.version.outputs.version_name }}"
+          git push origin "v${{ steps.version.outputs.version_name }}"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: "Release v${{ steps.version.outputs.version }}"
+          tag_name: v${{ steps.version.outputs.version_name }}
+          name: "Release v${{ steps.version.outputs.version_name }}"
           body: ${{ steps.changelog.outputs.body }}
           files: |
             build/app/outputs/flutter-apk/*-release.apk
