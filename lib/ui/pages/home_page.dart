@@ -8,6 +8,8 @@ import '../../services/download_service.dart';
 import '../../core/rate_limiter.dart';
 import '../../models/video_model.dart';
 
+import 'package:permission_handler/permission_handler.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -49,7 +51,6 @@ class _HomePageState extends State<HomePage> {
     try {
       await _downloadService.download(
         url,
-        '/storage/emulated/0/Download/fkdouyin',
         filename: filename,
         onProgress: (p) => context.read<VideoProvider>().setDownloadProgress(p),
       );
@@ -60,13 +61,43 @@ class _HomePageState extends State<HomePage> {
       }
     } catch (e) {
       if (mounted) {
+        String msg = '下载失败: $e';
+        if (e.toString().contains('permission_permanently_denied')) {
+          msg = '请在设置中开启相册/存储权限';
+          _showPermissionDialog();
+        } else if (e.toString().contains('未授予')) {
+          msg = '需要权限才能保存视频';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('下载失败: $e')),
+          SnackBar(content: Text(msg)),
         );
       }
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('权限申请'),
+        content: const Text('保存视频需要访问相册权限，当前权限已被永久拒绝，请前往设置开启。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              openAppSettings();
+            },
+            child: const Text('去设置'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showDownloadOptions(VideoModel video) {

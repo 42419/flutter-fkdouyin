@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:gal/gal.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../core/rate_limiter.dart';
 
@@ -9,62 +10,71 @@ class DownloadService {
   final RateLimiter limiter;
   DownloadService(this.limiter);
 
-  Future<bool> ensurePermissions() async {
-    if (!Platform.isAndroid) return true; // 仅安卓目标
-    final sdkInt = await _androidSdkInt();
-    if (sdkInt != null && sdkInt >= 33) {
-      final status = await Permission.videos.request();
-      return status.isGranted;
-    } else {
-      final status = await Permission.storage.request();
-      return status.isGranted;
+  Future<bool> requestPermission() async {
+    try {
+      final hasAccess = await Gal.hasAccess();
+      if (hasAccess) return true;
+      return await Gal.requestAccess();
+    } catch (e) {
+      return false;
     }
   }
 
-  Future<int?> _androidSdkInt() async {
-    try {
-      final file = File('/system/build.prop');
-      if (!await file.exists()) return null;
-      final lines = await file.readAsLines();
-      for (final l in lines) {
-        if (l.startsWith('ro.build.version.sdk=')) {
-          return int.tryParse(l.split('=').last.trim());
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  Future<File> download(String url, String saveDir, {String? filename, void Function(int)? onProgress}) async {
+  Future<void> download(String url, {String? filename, void Function(int)? onProgress}) async {
     if (limiter.isLimited || !limiter.tryConsume()) {
       throw Exception('下载频率受限');
     }
-    final ok = await ensurePermissions();
-    if (!ok) throw Exception('未授予存储/媒体权限');
 
+    // 1. 自动申请权限
+    final hasPermission = await requestPermission();
+    if (!hasPermission) {
+      // 再次检查是否被永久拒绝，如果是，抛出特定异常供 UI 处理
+      if (await Permission.storage.isPermanentlyDenied || 
+          await Permission.photos.isPermanentlyDenied || 
+          await Permission.videos.isPermanentlyDenied) {
+        throw Exception('permission_permanently_denied');
+      }
+      throw Exception('未授予保存到相册的权限');
+    }
+
+    // 2. 下载到临时目录 (避免 Android 10+ 存储权限问题)
+    final tempDir = await getTemporaryDirectory();
     final name = filename ?? 'douyin_${DateTime.now().millisecondsSinceEpoch}.mp4';
-    final dir = Directory(saveDir);
-    if (!await dir.exists()) await dir.create(recursive: true);
-    final filePath = '${dir.path}/$name';
-    final tempPath = '$filePath.part';
+    final tempPath = '${tempDir.path}/$name';
 
-    final resp = await _dio.download(
-      url,
-      tempPath,
-      onReceiveProgress: (r, t) {
-        if (t > 0 && onProgress != null) {
-          onProgress(((r / t) * 100).clamp(0, 100).toInt());
-        }
-      },
-      options: Options(followRedirects: true, responseType: ResponseType.bytes, validateStatus: (s) => s != null && s < 500),
-    );
-    if (resp.statusCode != 200) throw Exception('下载失败: ${resp.statusCode}');
+    try {
+      final resp = await _dio.download(
+        url,
+        tempPath,
+        onReceiveProgress: (r, t) {
+          if (t > 0 && onProgress != null) {
+            onProgress(((r / t) * 100).clamp(0, 100).toInt());
+          }
+        },
+        options: Options(
+          followRedirects: true, 
+          responseType: ResponseType.bytes, 
+          validateStatus: (s) => s != null && s < 500
+        ),
+      );
 
-    final partFile = File(tempPath);
-    if (!await partFile.exists()) throw Exception('临时文件缺失');
-    await partFile.rename(filePath);
+      if (resp.statusCode != 200) throw Exception('下载失败: ${resp.statusCode}');
 
-    await Gal.putVideo(filePath, album: 'fkdouyin');
-    return File(filePath);
+      // 3. 保存到相册
+      await Gal.putVideo(tempPath, album: 'fkdouyin');
+
+      // 4. 清理临时文件
+      final file = File(tempPath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      // 清理临时文件
+      final file = File(tempPath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      rethrow;
+    }
   }
 }

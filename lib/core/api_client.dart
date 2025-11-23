@@ -11,8 +11,9 @@ class ApiClient {
       'Content-Type': 'application/json',
     });
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      if (resp.body.isEmpty) return {};
-      return jsonDecode(resp.body) as Map<String, dynamic>;
+      if (resp.bodyBytes.isEmpty) return {};
+      final decodedBody = utf8.decode(resp.bodyBytes);
+      return jsonDecode(decodedBody) as Map<String, dynamic>;
     }
     throw Exception('请求失败 ${resp.statusCode}: ${resp.reasonPhrase}');
   }
