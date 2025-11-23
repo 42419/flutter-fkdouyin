@@ -78,6 +78,8 @@ jobs:
 
       - name: Create git tag
         run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${{ steps.version.outputs.version_name }}" -m "Release v${{ steps.version.outputs.version_name }}"
           git push origin "v${{ steps.version.outputs.version_name }}"
 
