@@ -35,19 +35,27 @@ jobs:
         if: "!contains(steps.checkmsg.outputs.last_msg, 'chore: bump version')"
         run: |
           set -eux
-          OLD_VER=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          # 1. 读取并清理 version 行 (去除 CR)
+          RAW_LINE=$(grep -E '^version:' pubspec.yaml | head -n1 | tr -d '\r')
+          OLD_VER=$(printf '%s' "$RAW_LINE" | awk '{print $2}')
+          # 2. 拆分版本号 (name + build)
           NAME_VER=${OLD_VER%%+*}
-          BUILD=${OLD_VER#*+}
+          BUILD_PART=${OLD_VER#*+}
+          if [ "$BUILD_PART" = "$OLD_VER" ]; then BUILD_PART=0; fi
+          # 3. 拆分主版本
           IFS='.' read -r MAJ MIN PATCH <<< "$NAME_VER"
+          # 4. 递增 patch 与 build
           NEW_PATCH=$((PATCH+1))
-          NEW_BUILD=$((BUILD+1))
+          NEW_BUILD=$((BUILD_PART+1))
           NEW_VER="${MAJ}.${MIN}.${NEW_PATCH}+${NEW_BUILD}"
           echo "Old version: $OLD_VER -> New version: $NEW_VER"
-          perl -0777 -pe "s/version:\s*$OLD_VER/version: $NEW_VER/s" -i pubspec.yaml
+          # 5. 替换 pubspec.yaml 中的 version 行 (保持其它内容不变)
+          perl -0777 -pe "s/version:\s*$OLD_VER/version: $NEW_VER/" -i pubspec.yaml
+          # 6. Git 配置与提交
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pubspec.yaml
-          git commit -m "chore: bump version to $NEW_VER"
+          git commit -m "chore: bump version to $NEW_VER" || echo "No version change to commit"
           git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:main
 
       - name: Build APK
