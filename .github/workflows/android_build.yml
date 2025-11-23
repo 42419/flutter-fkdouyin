@@ -65,11 +65,48 @@ jobs:
             git push origin HEAD:main
           fi
 
+      - name: Extract version
+        id: version
+        run: |
+          VER=$(grep -E '^version:' pubspec.yaml | head -n1 | tr -d '\r' | awk '{print $2}')
+          echo "version=$VER" >> $GITHUB_OUTPUT
+
       - name: Build APK
         run: flutter build apk --release
 
       - name: Build AAB
         run: flutter build appbundle --release
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          git fetch --tags || true
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            LOG=$(git log --pretty=format:'- %s')
+          else
+            LOG=$(git log ${LAST_TAG}..HEAD --pretty=format:'- %s')
+          fi
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create git tag
+        run: |
+          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "Release v${{ steps.version.outputs.version }}"
+          body: ${{ steps.changelog.outputs.body }}
+          files: |
+            build/app/outputs/flutter-apk/*-release.apk
+            build/app/outputs/bundle/release/*.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
