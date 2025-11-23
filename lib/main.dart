@@ -45,7 +45,7 @@ class FKDouyinApp extends StatelessWidget {
               foregroundColor: Color(0xFF7B3306),
               elevation: 0,
             ),
-            cardTheme: const CardTheme(
+            cardTheme: const CardThemeData(
               color: Color(0xFFFFFDF5),
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
@@ -69,7 +69,7 @@ class FKDouyinApp extends StatelessWidget {
               foregroundColor: Color(0xFFFFFCEE),
               elevation: 0,
             ),
-            cardTheme: const CardTheme(
+            cardTheme: const CardThemeData(
               color: Color(0xFF3D3A3E),
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
