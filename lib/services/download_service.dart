@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:gallery_saver/gallery_saver.dart';
+import 'package:gal/gal.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../core/rate_limiter.dart';
 
@@ -64,7 +64,7 @@ class DownloadService {
     if (!await partFile.exists()) throw Exception('临时文件缺失');
     await partFile.rename(filePath);
 
-    await GallerySaver.saveVideo(filePath, albumName: 'fkdouyin');
+    await Gal.putVideo(filePath, album: 'fkdouyin');
     return File(filePath);
   }
 }
