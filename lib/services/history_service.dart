@@ -27,7 +27,13 @@ class HistoryService {
   }
 
   Future<void> add(VideoModel model) async {
+    _items.removeWhere((e) => e.awemeId == model.awemeId); // 去重
     _items.insert(0, model); // 最近的前排
+    await _persist();
+  }
+
+  Future<void> clear() async {
+    _items.clear();
     await _persist();
   }
 

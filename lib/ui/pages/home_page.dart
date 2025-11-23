@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/video_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../services/history_service.dart';
 import '../../services/download_service.dart';
 import '../../core/rate_limiter.dart';
@@ -29,6 +31,10 @@ class _HomePageState extends State<HomePage> {
     final provider = context.read<VideoProvider>();
     final input = _controller.text.trim();
     if (input.isEmpty) return;
+    
+    // 收起键盘
+    FocusScope.of(context).unfocus();
+    
     await provider.parse(input);
     final video = provider.current;
     if (video != null) {
@@ -64,91 +70,299 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _clearHistory() async {
+    await _history.clear();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<VideoProvider>();
     final video = provider.current;
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('抖音解析下载'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            TextField(
-              controller: _controller,
-              decoration: InputDecoration(
-                labelText: '输入视频链接或ID',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () => _controller.clear(),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            floating: true,
+            pinned: true,
+            title: const Text('视频下载工具', style: TextStyle(fontWeight: FontWeight.bold)),
+            actions: [
+              IconButton(
+                icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                onPressed: () => themeProvider.toggleTheme(),
+                tooltip: '切换主题',
+              ),
+              IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () {
+                  // TODO: Show menu
+                },
+              ),
+            ],
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+              child: Column(
+                children: [
+                  Text(
+                    '抖音视频下载',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '支持抖音视频解析与下载，无水印高清视频',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardTheme.color,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            decoration: const InputDecoration(
+                              hintText: '粘贴抖音视频链接...',
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                            ),
+                            onSubmitted: (_) => _parse(),
+                          ),
+                        ),
+                        FilledButton(
+                          onPressed: provider.loading ? null : _parse,
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: provider.loading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('解析'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildTip(context, '📱', '支持手机/网页'),
+                      _buildTip(context, '🎯', '无水印高清'),
+                      _buildTip(context, '⚡', '快速解析'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (provider.error != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Card(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      provider.error!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: provider.loading ? null : _parse,
-                  icon: const Icon(Icons.search),
-                  label: const Text('解析'),
+          if (video != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _VideoDetailCard(
+                  video: video,
+                  progress: provider.progress,
+                  onDownload: () => _download(video),
+                  isDownloading: _downloading,
                 ),
-                const SizedBox(width: 16),
-                if (video != null && video.playUrl != null)
-                  ElevatedButton.icon(
-                    onPressed: _downloading ? null : () => _download(video),
-                    icon: const Icon(Icons.download),
-                    label: Text(_downloading ? '下载中...' : '下载'),
-                  ),
-              ],
+              ),
             ),
-            if (provider.loading) ...[
-              const SizedBox(height: 20),
-              const LinearProgressIndicator(),
-            ],
-            if (provider.error != null) ...[
-              const SizedBox(height: 12),
-              Text(provider.error!, style: const TextStyle(color: Colors.red)),
-            ],
-            if (video != null) ...[
-              const SizedBox(height: 16),
-              _VideoDetail(video: video, progress: provider.progress),
-            ],
-            const SizedBox(height: 24),
-            Text('历史记录', style: Theme.of(context).textTheme.titleMedium),
-            const Divider(),
-            for (final h in _history.items.take(20)) _HistoryTile(video: h),
-          ],
-        ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '📜 解析历史',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  TextButton(
+                    onPressed: _clearHistory,
+                    child: const Text('清空历史'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = _history.items[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: _HistoryCard(video: item),
+                  );
+                },
+                childCount: _history.items.length,
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 40)),
+        ],
       ),
+    );
+  }
+
+  Widget _buildTip(BuildContext context, String icon, String text) {
+    return Column(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 24)),
+        const SizedBox(height: 8),
+        Text(
+          text,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+        ),
+      ],
     );
   }
 }
 
-class _VideoDetail extends StatelessWidget {
+class _VideoDetailCard extends StatelessWidget {
   final VideoModel video;
   final int progress;
-  const _VideoDetail({required this.video, required this.progress});
+  final VoidCallback onDownload;
+  final bool isDownloading;
+
+  const _VideoDetailCard({
+    required this.video,
+    required this.progress,
+    required this.onDownload,
+    required this.isDownloading,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 3,
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(video.title ?? '无标题', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text('作者: ${video.author ?? '未知'}'),
-            const SizedBox(height: 4),
-            if (video.durationMs != null) Text('时长: ${(video.durationMs! / 1000).round()} 秒'),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (video.coverUrl != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      video.coverUrl!,
+                      width: 80,
+                      height: 110,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 80,
+                        height: 110,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.broken_image),
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        video.title ?? '无标题',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.person, size: 16, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              video.author ?? '未知作者',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      if (video.durationMs != null)
+                        Row(
+                          children: [
+                            const Icon(Icons.timer, size: 16, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${(video.durationMs! / 1000).round()} 秒',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             if (progress > 0 && progress < 100) ...[
-              const SizedBox(height: 8),
               LinearProgressIndicator(value: progress / 100),
-              Text('下载进度: $progress%'),
-            ],
+              const SizedBox(height: 8),
+              Text('下载进度: $progress%', style: Theme.of(context).textTheme.bodySmall),
+            ] else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: isDownloading ? null : onDownload,
+                  icon: const Icon(Icons.download),
+                  label: Text(isDownloading ? '下载中...' : '下载无水印视频'),
+                ),
+              ),
           ],
         ),
       ),
@@ -156,16 +370,41 @@ class _VideoDetail extends StatelessWidget {
   }
 }
 
-class _HistoryTile extends StatelessWidget {
+class _HistoryCard extends StatelessWidget {
   final VideoModel video;
-  const _HistoryTile({required this.video});
+  const _HistoryCard({required this.video});
+
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      title: Text(video.title ?? video.awemeId, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(video.author ?? ''),
-      trailing: Text(video.awemeId.substring(video.awemeId.length - 4)),
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: video.coverUrl != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  video.coverUrl!,
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.movie),
+                ),
+              )
+            : const Icon(Icons.movie),
+        title: Text(
+          video.title ?? video.awemeId,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        subtitle: Text(video.author ?? '未知作者'),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () {
+          // TODO: 点击历史记录重新加载或播放
+          context.read<VideoProvider>().parse(video.playUrl ?? video.awemeId);
+        },
+      ),
     );
   }
 }

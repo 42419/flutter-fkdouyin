@@ -74,9 +74,6 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Build AAB
-        run: flutter build appbundle --release
-
       - name: Generate changelog
         id: changelog
         run: |
@@ -104,7 +101,6 @@ jobs:
           body: ${{ steps.changelog.outputs.body }}
           files: |
             build/app/outputs/flutter-apk/*-release.apk
-            build/app/outputs/bundle/release/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
