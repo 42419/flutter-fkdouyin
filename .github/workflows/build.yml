@@ -1,0 +1,132 @@
+name: Build & Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # 1. 计算版本号和生成更新日志
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.ver.outputs.version_name }}
+      changelog: ${{ steps.log.outputs.body }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Calculate Version
+        id: ver
+        run: |
+          git fetch --tags
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "")
+          YAML_VER=$(grep -E '^version:' pubspec.yaml | head -n1 | awk '{print $2}' | cut -d'+' -f1)
+          if [ -z "$YAML_VER" ]; then YAML_VER="1.0.0"; fi
+          
+          if [ -z "$LAST_TAG" ]; then
+            NEW_VER="$YAML_VER"
+          else
+            TAG_VER=${LAST_TAG#v}
+            if [ "$(printf '%s\n%s' "$TAG_VER" "$YAML_VER" | sort -V | tail -n1)" = "$YAML_VER" ] && [ "$TAG_VER" != "$YAML_VER" ]; then
+               NEW_VER="$YAML_VER"
+            else
+               IFS='.' read -r MAJ MIN PAT <<< "$TAG_VER"
+               NEW_PAT=$((PAT + 1))
+               NEW_VER="${MAJ}.${MIN}.${NEW_PAT}"
+            fi
+          fi
+          echo "Calculated version: $NEW_VER"
+          echo "version_name=$NEW_VER" >> $GITHUB_OUTPUT
+      
+      - name: Generate changelog
+        id: log
+        run: |
+          git fetch --tags || true
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            LOG=$(git log --pretty=format:'- %s')
+          else
+            LOG=$(git log ${LAST_TAG}..HEAD --pretty=format:'- %s')
+          fi
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # 2. 构建 Android APK
+  build-android:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - name: Build APK
+        run: flutter build apk --release --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ github.run_number }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: build/app/outputs/flutter-apk/*-release.apk
+
+  # 3. 构建 iOS IPA (未签名)
+  build-ios:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      
+      - name: Build iOS (No Codesign)
+        run: |
+          flutter build ios --release --no-codesign --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ github.run_number }}
+      
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          mv build/ios/iphoneos/Runner.app Payload/
+          zip -r fkdouyin_ios_unsigned.ipa Payload
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: fkdouyin_ios_unsigned.ipa
+
+  # 4. 发布 Release
+  release:
+    needs: [version, build-android, build-ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version_name }}
+          name: "Release v${{ needs.version.outputs.version_name }}"
+          body: |
+            ${{ needs.version.outputs.changelog }}
+            
+            ---
+            **iOS 安装说明**:
+            此 IPA 文件未签名。请使用 [AltStore](https://altstore.io/) 或 [Sideloadly](https://sideloadly.io/) 配合您的 Apple ID 进行安装。
+          files: |
+            artifacts/apk/*.apk
+            artifacts/ipa/*.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
