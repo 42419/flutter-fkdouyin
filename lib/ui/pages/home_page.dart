@@ -281,12 +281,14 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
                     children: [
-                      _buildTip(context, '📱', '支持手机/网页'),
-                      _buildTip(context, '🎯', '无水印高清'),
-                      _buildTip(context, '⚡', '快速解析'),
+                      _featurePill(context, Icons.devices_rounded, '多端支持', Colors.blue),
+                      _featurePill(context, Icons.high_quality_rounded, '无水印高清', Colors.purple),
+                      _featurePill(context, Icons.bolt_rounded, '极速解析', Colors.orange),
                     ],
                   ),
                 ],
@@ -361,18 +363,31 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTip(BuildContext context, String icon, String text) {
-    return Column(
-      children: [
-        Text(icon, style: const TextStyle(fontSize: 24)),
-        const SizedBox(height: 8),
-        Text(
-          text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
-        ),
-      ],
+  Widget _featurePill(BuildContext context, IconData icon, String label, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final containerColor = isDark ? color.withOpacity(0.2) : color.withOpacity(0.1);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
