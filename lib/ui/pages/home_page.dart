@@ -5,6 +5,7 @@ import '../../providers/video_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/history_service.dart';
 import '../../services/download_service.dart';
+import '../../services/update_service.dart';
 import '../../core/rate_limiter.dart';
 import '../../models/video_model.dart';
 import 'about_page.dart';
@@ -32,6 +33,11 @@ class _HomePageState extends State<HomePage> {
       if (mounted) setState(() {});
     });
     _downloadService = DownloadService(RateLimiter(maxRequests: 5));
+    
+    // Check for updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService().checkUpdate(context);
+    });
   }
 
   @override
@@ -284,6 +290,7 @@ class _HomePageState extends State<HomePage> {
                 icon: const Icon(Icons.menu),
                 offset: const Offset(0, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                clipBehavior: Clip.antiAlias,
                 onSelected: (value) {
                   if (value == 'about') {
                     Navigator.push(
@@ -670,6 +677,7 @@ class _HistoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: video.coverUrl != null
