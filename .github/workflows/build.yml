@@ -57,6 +57,19 @@ jobs:
           echo "$LOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Create git tag
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          TAG_NAME="v${{ steps.ver.outputs.version_name }}"
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists."
+          else
+            git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+            git push origin "$TAG_NAME"
+          fi
+
   # 2. 构建 Android APK
   build-android:
     needs: version
