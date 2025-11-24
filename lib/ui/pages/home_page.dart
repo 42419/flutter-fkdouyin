@@ -132,36 +132,110 @@ class _HomePageState extends State<HomePage> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('选择下载清晰度', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: video.downloadOptions.map((option) => ListTile(
-                    leading: const Icon(Icons.video_file_outlined),
-                    title: Text('${option.quality} (${option.resolution})'),
-                    subtitle: Text('${_formatSize(option.size)} • ${option.frameRate}FPS • ${option.format}'),
-                    trailing: const Icon(Icons.download),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _download(option.url, '${video.awemeId}_${option.quality}.mp4');
-                    },
-                  )).toList(),
+        return DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.download_rounded, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      const Text('选择下载清晰度', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      Text('${video.downloadOptions.length}个资源', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: video.downloadOptions.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final option = video.downloadOptions[index];
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.video_file_rounded, color: Colors.blue),
+                          ),
+                          title: Row(
+                            children: [
+                              Text(option.quality, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  option.resolution,
+                                  style: const TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text('${_formatSize(option.size)} • ${option.frameRate}FPS • ${option.format}'),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.download_for_offline_rounded, color: Colors.blue, size: 28),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _download(option.url, '${video.awemeId}_${option.quality}.mp4');
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -492,9 +566,40 @@ class _VideoDetailCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (progress > 0 && progress < 100) ...[
-              LinearProgressIndicator(value: progress / 100),
-              const SizedBox(height: 8),
-              Text('下载进度: $progress%', style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 12),
+              Container(
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Stack(
+                  children: [
+                    FractionallySizedBox(
+                      widthFactor: progress / 100,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.blue.shade300, Colors.blue.shade600],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Text(
+                        '正在下载 $progress%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          shadows: [Shadow(color: Colors.black26, blurRadius: 2)],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ] else
               SizedBox(
                 width: double.infinity,
