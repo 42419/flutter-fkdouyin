@@ -7,6 +7,7 @@ import '../../services/history_service.dart';
 import '../../services/download_service.dart';
 import '../../core/rate_limiter.dart';
 import '../../models/video_model.dart';
+import 'about_page.dart';
 
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -138,6 +139,7 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
+        final primaryColor = Theme.of(context).colorScheme.primary;
         return DraggableScrollableSheet(
           initialChildSize: 0.5,
           minChildSize: 0.3,
@@ -161,7 +163,7 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      const Icon(Icons.download_rounded, color: Colors.blue),
+                      Icon(Icons.download_rounded, color: primaryColor),
                       const SizedBox(width: 8),
                       const Text('选择下载清晰度', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const Spacer(),
@@ -195,10 +197,10 @@ class _HomePageState extends State<HomePage> {
                           leading: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
+                              color: primaryColor.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.video_file_rounded, color: Colors.blue),
+                            child: Icon(Icons.video_file_rounded, color: primaryColor),
                           ),
                           title: Row(
                             children: [
@@ -222,7 +224,7 @@ class _HomePageState extends State<HomePage> {
                             child: Text('${_formatSize(option.size)} • ${option.frameRate}FPS • ${option.format}'),
                           ),
                           trailing: IconButton(
-                            icon: const Icon(Icons.download_for_offline_rounded, color: Colors.blue, size: 28),
+                            icon: Icon(Icons.download_for_offline_rounded, color: primaryColor, size: 28),
                             onPressed: () {
                               Navigator.pop(context);
                               _download(option.url, '${video.awemeId}_${option.quality}.mp4');
@@ -278,11 +280,30 @@ class _HomePageState extends State<HomePage> {
                 onPressed: () => themeProvider.toggleTheme(),
                 tooltip: '切换主题',
               ),
-              IconButton(
+              PopupMenuButton<String>(
                 icon: const Icon(Icons.menu),
-                onPressed: () {
-                  // TODO: Show menu
+                offset: const Offset(0, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                onSelected: (value) {
+                  if (value == 'about') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AboutPage()),
+                    );
+                  }
                 },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'about',
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded),
+                        SizedBox(width: 12),
+                        Text('关于应用'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -481,6 +502,8 @@ class _VideoDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -580,7 +603,10 @@ class _VideoDetailCard extends StatelessWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Colors.blue.shade300, Colors.blue.shade600],
+                            colors: [
+                              primaryColor.withOpacity(0.7),
+                              primaryColor,
+                            ],
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -589,11 +615,10 @@ class _VideoDetailCard extends StatelessWidget {
                     Center(
                       child: Text(
                         '正在下载 $progress%',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          shadows: [Shadow(color: Colors.black26, blurRadius: 2)],
                         ),
                       ),
                     ),
