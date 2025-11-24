@@ -668,8 +668,8 @@ class _HistoryCard extends StatelessWidget {
         subtitle: Text(video.author ?? '未知作者'),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
-          // TODO: 点击历史记录重新加载或播放
-          context.read<VideoProvider>().parse(video.playUrl ?? video.awemeId);
+          // 使用 awemeId 重新获取最新数据，而不是使用 playUrl (playUrl 可能不包含 aweme_id)
+          context.read<VideoProvider>().parse(video.awemeId);
         },
       ),
     );
