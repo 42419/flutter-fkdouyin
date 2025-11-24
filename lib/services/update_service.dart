@@ -1,0 +1,103 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class UpdateService {
+  static const String _releasesUrl = 'https://api.github.com/repos/42419/flutter-fkdouyin/releases/latest';
+
+  Future<void> checkUpdate(BuildContext context, {bool showNoUpdateToast = false}) async {
+    try {
+      // 1. Get current version
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersion = packageInfo.version;
+
+      // 2. Get latest version from GitHub
+      final dio = Dio();
+      final response = await dio.get(_releasesUrl);
+      
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final String tagName = data['tag_name']; // e.g., "v1.1.0" or "1.1.0"
+        final String latestVersion = tagName.replaceAll('v', '');
+        final String htmlUrl = data['html_url'];
+        final String body = data['body'] ?? '修复了一些已知问题';
+
+        // 3. Compare versions
+        if (_isNewVersion(currentVersion, latestVersion)) {
+          if (context.mounted) {
+            _showUpdateDialog(context, latestVersion, body, htmlUrl);
+          }
+        } else {
+          if (showNoUpdateToast && context.mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('当前已是最新版本')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (showNoUpdateToast && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('检查更新失败: $e')),
+        );
+      }
+    }
+  }
+
+  bool _isNewVersion(String current, String latest) {
+    try {
+      final cParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final lParts = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+
+      // Compare major, minor, patch
+      for (int i = 0; i < 3; i++) {
+        final c = i < cParts.length ? cParts[i] : 0;
+        final l = i < lParts.length ? lParts[i] : 0;
+        if (l > c) return true;
+        if (l < c) return false;
+      }
+    } catch (e) {
+      debugPrint('Version parse error: $e');
+    }
+    return false;
+  }
+
+  void _showUpdateDialog(BuildContext context, String version, String desc, String url) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('发现新版本 $version'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(desc),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('稍后'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _launchUrl(url);
+            },
+            child: const Text('立即更新'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+}
