@@ -84,9 +84,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
-          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash:' # 显式指定 cache-key 避免默认 hashFiles 报错
-          cache-path: '${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:' # 显式指定 cache-path
+          cache: false # 禁用缓存以避免 hashFiles 错误
       - run: flutter pub get
       
       - name: Build iOS (No Codesign)
