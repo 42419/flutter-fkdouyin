@@ -262,8 +262,30 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _clearHistory() async {
-    await _history.clear();
-    setState(() {});
+    if (_history.items.isEmpty) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('清空历史'),
+        content: const Text('确定要清空所有解析历史吗？此操作无法撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _history.clear();
+      setState(() {});
+    }
   }
 
   @override
@@ -720,8 +742,13 @@ class _HistoryCard extends StatelessWidget {
         subtitle: Text(video.author ?? '未知作者'),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
+          final provider = context.read<VideoProvider>();
+          if (provider.loading) {
+            Fluttertoast.showToast(msg: "正在解析中，请稍候...");
+            return;
+          }
           // 使用 awemeId 重新获取最新数据，而不是使用 playUrl (playUrl 可能不包含 aweme_id)
-          context.read<VideoProvider>().parse(video.awemeId);
+          provider.parse(video.awemeId);
         },
       ),
     );

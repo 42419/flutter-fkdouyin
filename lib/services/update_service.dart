@@ -61,10 +61,7 @@ class UpdateService {
             Fluttertoast.showToast(
               msg: "当前已是最新版本",
               toastLength: Toast.LENGTH_SHORT,
-              gravity: ToastGravity.CENTER,
-              backgroundColor: Colors.black87,
-              textColor: Colors.white,
-              fontSize: 16.0
+              gravity: ToastGravity.BOTTOM,
             );
           }
         }
@@ -74,10 +71,7 @@ class UpdateService {
         Fluttertoast.showToast(
           msg: "检查更新失败: $e",
           toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.CENTER,
-          backgroundColor: Colors.black87,
-          textColor: Colors.white,
-          fontSize: 16.0
+          gravity: ToastGravity.BOTTOM,
         );
       }
     }

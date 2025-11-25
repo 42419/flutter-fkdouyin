@@ -391,7 +391,7 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
               context, 
               Icons.code_rounded, 
               'GitHub',
-              'https://github.com/42419/fkdouyin', // Replace with actual repo
+              'https://github.com/42419/flutter-fkdouyin', // Replace with actual repo
             ),
             const SizedBox(width: 24),
             _buildSocialButton(
