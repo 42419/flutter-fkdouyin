@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../../providers/video_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -302,6 +303,14 @@ class _HomePageState extends State<HomePage> {
             floating: true,
             pinned: true,
             title: const Text('视频下载工具', style: TextStyle(fontWeight: FontWeight.bold)),
+            flexibleSpace: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  color: Colors.transparent,
+                ),
+              ),
+            ),
             actions: [
               IconButton(
                 icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),

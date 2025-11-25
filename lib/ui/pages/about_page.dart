@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/update_service.dart';
@@ -82,6 +83,14 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
         ),
         title: Text('关于应用', style: TextStyle(color: headerContentColor, fontWeight: FontWeight.w600)),
         centerTitle: true,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+            child: Container(
+              color: Colors.transparent,
+            ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         physics: const ClampingScrollPhysics(),
