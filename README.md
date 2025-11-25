@@ -14,9 +14,9 @@
 ## 📱 截图预览
 
 <div align="center">
-  <img src="https://rin-img.liyunfei.eu.org/images/homepage1.jpg" width="300" alt="Home Page">
+  <img src="https://tc.liyunfei.eu.org/v2/XOkFFAF.jpeg" width="300" alt="Home Page">
 
-  <img src="https://rin-img.liyunfei.eu.org/images/homepage2.jpg" width="300" alt="Home Page">
+  <img src="https://tc.liyunfei.eu.org/v2/NdaDMDN.jpeg" width="300" alt="Home Page">
 
 </div>
 
