@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateService {
   static const String _releasesUrl = 'https://api.github.com/repos/42419/flutter-fkdouyin/releases/latest';
+  static const String _proxyUrl = 'https://gh-proxy.org/';
 
   Future<void> checkUpdate(BuildContext context, {bool showNoUpdateToast = false}) async {
     try {
@@ -20,13 +22,32 @@ class UpdateService {
         final data = response.data;
         final String tagName = data['tag_name']; // e.g., "v1.1.0" or "1.1.0"
         final String latestVersion = tagName.replaceAll('v', '');
-        final String htmlUrl = data['html_url'];
         final String body = data['body'] ?? '修复了一些已知问题';
+        
+        // Find download URL
+        String downloadUrl = '';
+        if (data['assets'] != null && (data['assets'] as List).isNotEmpty) {
+          // Try to find apk asset
+          final assets = data['assets'] as List;
+          final apkAsset = assets.firstWhere(
+            (element) => element['name'].toString().endsWith('.apk'),
+            orElse: () => null,
+          );
+          
+          if (apkAsset != null) {
+            downloadUrl = _proxyUrl + apkAsset['browser_download_url'];
+          }
+        }
+        
+        // Fallback if no asset found or parsing failed
+        if (downloadUrl.isEmpty) {
+           downloadUrl = '${_proxyUrl}https://github.com/42419/flutter-fkdouyin/releases/download/$tagName/app-release.apk';
+        }
 
         // 3. Compare versions
         if (_isNewVersion(currentVersion, latestVersion)) {
           if (context.mounted) {
-            _showUpdateDialog(context, latestVersion, body, htmlUrl);
+            _showUpdateDialog(context, latestVersion, body, downloadUrl);
           }
         } else {
           if (showNoUpdateToast && context.mounted) {
@@ -63,18 +84,27 @@ class UpdateService {
     return false;
   }
 
-  void _showUpdateDialog(BuildContext context, String version, String desc, String url) {
+  void _showUpdateDialog(BuildContext context, String version, String desc, String downloadUrl) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Text('发现新版本 $version'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(desc),
-            ],
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: MarkdownBody(
+              data: desc,
+              styleSheet: MarkdownStyleSheet(
+                p: Theme.of(context).textTheme.bodyMedium,
+                listBullet: Theme.of(context).textTheme.bodyMedium,
+              ),
+              onTapLink: (text, href, title) {
+                if (href != null) {
+                  _launchUrl(href);
+                }
+              },
+            ),
           ),
         ),
         actions: [
@@ -85,7 +115,7 @@ class UpdateService {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              _launchUrl(url);
+              _launchUrl(downloadUrl);
             },
             child: const Text('立即更新'),
           ),
