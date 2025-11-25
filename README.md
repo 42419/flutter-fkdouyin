@@ -14,7 +14,9 @@
 ## 📱 截图预览
 
 <div align="center">
-  <img src="screenshots/homepage.jpg" width="300" alt="Home Page" />
+  <img src="screenshots/homepage1.jpg" width="300" alt="Home Page">
+  <img src="screenshots/homepage2.jpg" width="300" alt="Home Page">
+
 </div>
 
 ## 🚀 开始使用
