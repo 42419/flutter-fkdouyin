@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -22,7 +23,13 @@ class UpdateService {
         final data = response.data;
         final String tagName = data['tag_name']; // e.g., "v1.1.0" or "1.1.0"
         final String latestVersion = tagName.replaceAll('v', '');
-        final String body = data['body'] ?? '修复了一些已知问题';
+        String body = data['body'] ?? '修复了一些已知问题';
+
+        // 移除 iOS 安装说明
+        body = body.replaceAll(RegExp(r'iOS 安装说明:[\s\S]*?进行安装。'), '');
+        // 移除可能存在的分隔线
+        body = body.replaceAll(RegExp(r'\n---\s*$'), '');
+        body = body.trim();
         
         // Find download URL
         String downloadUrl = '';
@@ -50,17 +57,27 @@ class UpdateService {
             _showUpdateDialog(context, latestVersion, body, downloadUrl);
           }
         } else {
-          if (showNoUpdateToast && context.mounted) {
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('当前已是最新版本')),
+          if (showNoUpdateToast) {
+            Fluttertoast.showToast(
+              msg: "当前已是最新版本",
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.CENTER,
+              backgroundColor: Colors.black87,
+              textColor: Colors.white,
+              fontSize: 16.0
             );
           }
         }
       }
     } catch (e) {
-      if (showNoUpdateToast && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('检查更新失败: $e')),
+      if (showNoUpdateToast) {
+        Fluttertoast.showToast(
+          msg: "检查更新失败: $e",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.CENTER,
+          backgroundColor: Colors.black87,
+          textColor: Colors.white,
+          fontSize: 16.0
         );
       }
     }

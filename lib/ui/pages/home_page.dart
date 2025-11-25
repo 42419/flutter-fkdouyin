@@ -597,40 +597,59 @@ class _VideoDetailCard extends StatelessWidget {
             const SizedBox(height: 16),
             if (progress > 0 && progress < 100) ...[
               const SizedBox(height: 12),
-              Container(
-                height: 24,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Stack(
-                  children: [
-                    FractionallySizedBox(
-                      widthFactor: progress / 100,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              primaryColor.withOpacity(0.7),
-                              primaryColor,
-                            ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Container(
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Text(
+                            '正在下载 $progress%',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
+                        ),
+                        ClipRRect(
                           borderRadius: BorderRadius.circular(12),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: progress / 100,
+                            child: Container(
+                              width: constraints.maxWidth,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    primaryColor.withOpacity(0.7),
+                                    primaryColor,
+                                  ],
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '正在下载 $progress%',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onPrimary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    Center(
-                      child: Text(
-                        '正在下载 $progress%',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ] else
               SizedBox(
