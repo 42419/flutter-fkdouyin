@@ -25,10 +25,12 @@ class UpdateService {
         final String latestVersion = tagName.replaceAll('v', '');
         String body = data['body'] ?? '修复了一些已知问题';
 
-        // 移除 iOS 安装说明
-        body = body.replaceAll(RegExp(r'iOS 安装说明:[\s\S]*?进行安装。'), '');
-        // 移除可能存在的分隔线
-        body = body.replaceAll(RegExp(r'\n---\s*$'), '');
+        // 移除 iOS 安装说明相关内容 (支持 Markdown 加粗格式)
+        body = body.replaceAll(RegExp(r'(\*\*|)?iOS 安装说明(\*\*|)?[:：][\s\S]*'), '');
+        
+        // 移除可能残留的分隔线 (---, ***, ___)
+        body = body.replaceAll(RegExp(r'\n\s*[-*_]{3,}\s*$'), '');
+        
         body = body.trim();
         
         // Find download URL
