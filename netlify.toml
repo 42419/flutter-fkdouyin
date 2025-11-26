@@ -1,0 +1,10 @@
+[build]
+  # Netlify 默认没有 Flutter，所以我们需要在构建时下载它
+  command = "git clone https://github.com/flutter/flutter.git -b stable --depth 1 _flutter && export PATH=\"$PWD/_flutter/bin:$PATH\" && flutter pub get && flutter build web --release"
+  publish = "build/web"
+
+# 处理 SPA 路由重定向，防止刷新页面报 404
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,10 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'web_reload_helper.dart';
 
 class UpdateService {
   static const String _releasesUrl = 'https://api.github.com/repos/42419/flutter-fkdouyin/releases/latest';
@@ -147,7 +150,11 @@ class UpdateService {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              _launchUrl(downloadUrl);
+              if (kIsWeb) {
+                reloadPage();
+              } else {
+                _launchUrl(downloadUrl);
+              }
             },
             child: const Text('立即更新'),
           ),
