@@ -1,10 +1,13 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/video_model.dart';
 
 class HistoryService {
   static const _fileName = 'history.json';
+  static const _prefsKey = 'history_data';
   List<VideoModel> _items = [];
   List<VideoModel> get items => List.unmodifiable(_items);
 
@@ -17,10 +20,21 @@ class HistoryService {
 
   Future<void> load() async {
     try {
-      final file = await _historyFile();
-      final txt = await file.readAsString();
-      final data = jsonDecode(txt) as List;
-      _items = data.map((e) => VideoModel.fromJson(e as Map<String, dynamic>)).toList();
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final txt = prefs.getString(_prefsKey);
+        if (txt != null) {
+           final data = jsonDecode(txt) as List;
+           _items = data.map((e) => VideoModel.fromJson(e as Map<String, dynamic>)).toList();
+        } else {
+           _items = [];
+        }
+      } else {
+        final file = await _historyFile();
+        final txt = await file.readAsString();
+        final data = jsonDecode(txt) as List;
+        _items = data.map((e) => VideoModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
     } catch (_) {
       _items = [];
     }
@@ -38,8 +52,15 @@ class HistoryService {
   }
 
   Future<void> _persist() async {
-    final file = await _historyFile();
     final list = _items.map((e) => e.toJson()).toList();
-    await file.writeAsString(jsonEncode(list));
+    final jsonStr = jsonEncode(list);
+    
+    if (kIsWeb) {
+       final prefs = await SharedPreferences.getInstance();
+       await prefs.setString(_prefsKey, jsonStr);
+    } else {
+       final file = await _historyFile();
+       await file.writeAsString(jsonStr);
+    }
   }
 }

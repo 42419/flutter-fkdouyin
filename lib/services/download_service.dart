@@ -1,9 +1,11 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../core/rate_limiter.dart';
+import 'web_download_helper.dart';
 
 class DownloadService {
   final Dio _dio = Dio();
@@ -11,6 +13,7 @@ class DownloadService {
   DownloadService(this.limiter);
 
   Future<bool> requestPermission() async {
+    if (kIsWeb) return true;
     try {
       final hasAccess = await Gal.hasAccess();
       if (hasAccess) return true;
@@ -23,6 +26,12 @@ class DownloadService {
   Future<void> download(String url, {String? filename, void Function(int)? onProgress}) async {
     if (limiter.isLimited || !limiter.tryConsume()) {
       throw Exception('下载频率受限');
+    }
+
+    if (kIsWeb) {
+      final name = filename ?? 'douyin_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      await downloadVideoWeb(url, name, onProgress: onProgress);
+      return;
     }
 
     // 1. 自动申请权限

@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateService {
   static const String _releasesUrl = 'https://api.github.com/repos/42419/flutter-fkdouyin/releases/latest';
   static const String _proxyUrl = 'https://gh-proxy.org/';
+  static const String _kIgnoreVersion = 'ignore_version';
 
   Future<void> checkUpdate(BuildContext context, {bool showNoUpdateToast = false}) async {
     try {
@@ -55,6 +57,15 @@ class UpdateService {
 
         // 3. Compare versions
         if (_isNewVersion(currentVersion, latestVersion)) {
+          // Check if ignored
+          if (!showNoUpdateToast) {
+            final prefs = await SharedPreferences.getInstance();
+            final ignoredVersion = prefs.getString(_kIgnoreVersion);
+            if (ignoredVersion == latestVersion) {
+              return;
+            }
+          }
+
           if (context.mounted) {
             _showUpdateDialog(context, latestVersion, body, downloadUrl);
           }
@@ -121,6 +132,14 @@ class UpdateService {
           ),
         ),
         actions: [
+          TextButton(
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString(_kIgnoreVersion, version);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('不再提醒', style: TextStyle(color: Colors.grey)),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('稍后'),

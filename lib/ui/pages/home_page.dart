@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
@@ -79,7 +80,7 @@ class _HomePageState extends State<HomePage> {
       );
       if (mounted) {
         Fluttertoast.showToast(
-          msg: "下载完成并保存到相册",
+          msg: kIsWeb ? "下载完成" : "下载完成并保存到相册",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
         );
