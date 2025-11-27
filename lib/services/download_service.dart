@@ -23,14 +23,14 @@ class DownloadService {
     }
   }
 
-  Future<void> download(String url, {String? filename, void Function(int)? onProgress}) async {
+  Future<void> download(String url, {String? filename, String? token, void Function(int)? onProgress}) async {
     if (limiter.isLimited || !limiter.tryConsume()) {
       throw Exception('下载频率受限');
     }
 
     if (kIsWeb) {
       final name = filename ?? 'douyin_${DateTime.now().millisecondsSinceEpoch}.mp4';
-      await downloadVideoWeb(url, name, onProgress: onProgress);
+      await downloadVideoWeb(url, name, token: token, onProgress: onProgress);
       return;
     }
 
@@ -51,9 +51,13 @@ class DownloadService {
     final name = filename ?? 'douyin_${DateTime.now().millisecondsSinceEpoch}.mp4';
     final tempPath = '${tempDir.path}/$name';
 
+    // 后端下载代理地址
+    const apiBase = 'https://douyin-hono.liyunfei.eu.org';
+    final apiUrl = '$apiBase/api/download?url=${Uri.encodeComponent(url)}&filename=${Uri.encodeComponent(name)}';
+
     try {
       final resp = await _dio.download(
-        url,
+        apiUrl,
         tempPath,
         onReceiveProgress: (r, t) {
           if (t > 0 && onProgress != null) {
@@ -63,7 +67,10 @@ class DownloadService {
         options: Options(
           followRedirects: true, 
           responseType: ResponseType.bytes, 
-          validateStatus: (s) => s != null && s < 500
+          validateStatus: (s) => s != null && s < 500,
+          headers: token != null && token.isNotEmpty
+              ? {'Authorization': 'Bearer $token'}
+              : null,
         ),
       );
 

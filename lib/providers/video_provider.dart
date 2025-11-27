@@ -13,7 +13,7 @@ class VideoProvider extends ChangeNotifier {
 
   VideoProvider({required this.service, required this.limiter});
 
-  Future<void> parse(String input) async {
+  Future<void> parse(String input, {String? token}) async {
     if (loading) return;
     error = null;
     loading = true;
@@ -33,7 +33,7 @@ class VideoProvider extends ChangeNotifier {
     }
 
     try {
-      final video = await service.parseInput(input);
+      final video = await service.parseInput(input, token: token);
       if (video == null) {
         error = '未解析到视频（可能是主页链接）';
       }

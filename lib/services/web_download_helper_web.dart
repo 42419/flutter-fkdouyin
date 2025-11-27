@@ -1,7 +1,7 @@
 import 'dart:html' as html;
 import 'package:dio/dio.dart';
 
-Future<void> downloadVideoWeb(String url, String filename, {void Function(int)? onProgress}) async {
+Future<void> downloadVideoWeb(String url, String filename, {String? token, void Function(int)? onProgress}) async {
   // 使用后端代理API下载，解决CORS问题
   const apiBase = 'https://douyin-hono.liyunfei.eu.org';
   final apiUrl = '$apiBase/api/download?url=${Uri.encodeComponent(url)}&filename=${Uri.encodeComponent(filename)}';
@@ -12,6 +12,9 @@ Future<void> downloadVideoWeb(String url, String filename, {void Function(int)? 
       apiUrl,
       options: Options(
         responseType: ResponseType.bytes,
+        headers: token != null && token.isNotEmpty
+            ? {'Authorization': 'Bearer $token'}
+            : null,
       ),
       onReceiveProgress: (received, total) {
         if (total != -1 && onProgress != null) {

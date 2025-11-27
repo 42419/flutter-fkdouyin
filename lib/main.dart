@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/rate_limiter.dart';
 import 'services/video_service.dart';
+import 'services/auth_service.dart';
 import 'core/api_client.dart';
 import 'providers/video_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/auth_provider.dart';
 import 'ui/pages/home_page.dart';
+import 'ui/pages/login_page.dart';
 
 void main() => runApp(const FKDouyinApp());
 
@@ -22,6 +25,13 @@ class FKDouyinApp extends StatelessWidget {
             service: VideoService(ApiClient()),
             limiter: RateLimiter(),
           ),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(
+            service: AuthService(
+              baseUrl: 'https://douyin-hono.liyunfei.eu.org/api',
+            ),
+          )..init(),
         ),
       ],
       child: Consumer<ThemeProvider>(
@@ -75,9 +85,36 @@ class FKDouyinApp extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
           ),
-          home: const HomePage(),
+          routes: {
+            '/login': (_) => const LoginPage(),
+            '/': (_) => const AuthGate(),
+          },
+          initialRoute: '/',
         ),
       ),
     );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+
+    if (!auth.initialised) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (auth.isAuthed) {
+      return const HomePage();
+    }
+
+    return const LoginPage();
   }
 }

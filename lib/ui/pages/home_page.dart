@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../../providers/video_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/history_service.dart';
 import '../../services/download_service.dart';
 import '../../services/update_service.dart';
@@ -51,13 +52,14 @@ class _HomePageState extends State<HomePage> {
 
   void _parse() async {
     final provider = context.read<VideoProvider>();
+    final authToken = context.read<AuthProvider>().token;
     final input = _controller.text.trim();
     if (input.isEmpty) return;
     
     // 收起键盘
     _focusNode.unfocus();
     
-    await provider.parse(input);
+    await provider.parse(input, token: authToken);
     final video = provider.current;
     if (video != null) {
       await _history.add(video);
@@ -72,10 +74,12 @@ class _HomePageState extends State<HomePage> {
     _focusNode.unfocus();
     
     setState(() => _downloading = true);
+    final authToken = context.read<AuthProvider>().token;
     try {
       await _downloadService.download(
         url,
         filename: filename,
+        token: authToken,
         onProgress: (p) => context.read<VideoProvider>().setDownloadProgress(p),
       );
       if (mounted) {
@@ -323,15 +327,115 @@ class _HomePageState extends State<HomePage> {
                 offset: const Offset(0, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 clipBehavior: Clip.antiAlias,
-                onSelected: (value) {
+                onSelected: (value) async {
                   if (value == 'about') {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const AboutPage()),
                     );
+                  } else if (value == 'change_password') {
+                    final oldController = TextEditingController();
+                    final newController = TextEditingController();
+                    final confirmController = TextEditingController();
+                    final formKey = GlobalKey<FormState>();
+
+                    showDialog(
+                      context: context,
+                      builder: (ctx) {
+                        return AlertDialog(
+                          title: const Text('修改密码'),
+                          content: Form(
+                            key: formKey,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextFormField(
+                                  controller: oldController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(labelText: '原密码'),
+                                  validator: (v) => (v == null || v.isEmpty) ? '请输入原密码' : null,
+                                ),
+                                SizedBox(height: 12),
+                                TextFormField(
+                                  controller: newController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(labelText: '新密码'),
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) return '请输入新密码';
+                                    if (v.length < 6) return '密码至少 6 位';
+                                    return null;
+                                  },
+                                ),
+                                SizedBox(height: 12),
+                                TextFormField(
+                                  controller: confirmController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(labelText: '确认新密码'),
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) return '请再次输入新密码';
+                                    if (v != newController.text) return '两次输入不一致';
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: const Text('取消'),
+                            ),
+                            FilledButton(
+                              onPressed: () async {
+                                final form = formKey.currentState;
+                                if (form == null || !form.validate()) return;
+                                try {
+                                  await ctx.read<AuthProvider>().changePassword(
+                                        oldController.text,
+                                        newController.text,
+                                      );
+                                  if (ctx.mounted) {
+                                    Navigator.of(ctx).pop();
+                                    Fluttertoast.showToast(msg: '密码修改成功');
+                                  }
+                                } catch (e) {
+                                  Fluttertoast.showToast(msg: '修改密码失败: $e');
+                                }
+                              },
+                              child: const Text('确认修改'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  } else if (value == 'logout') {
+                    await context.read<AuthProvider>().logout();
+                    if (context.mounted) {
+                      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                    }
                   }
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'change_password',
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock_reset_rounded),
+                        SizedBox(width: 12),
+                        Text('修改密码'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout_rounded),
+                        SizedBox(width: 12),
+                        Text('退出登录'),
+                      ],
+                    ),
+                  ),
                   const PopupMenuItem<String>(
                     value: 'about',
                     child: Row(
@@ -757,8 +861,8 @@ class _HistoryCard extends StatelessWidget {
             Fluttertoast.showToast(msg: "正在解析中，请稍候...");
             return;
           }
-          // 使用 awemeId 重新获取最新数据，而不是使用 playUrl (playUrl 可能不包含 aweme_id)
-          provider.parse(video.awemeId);
+          final authToken = context.read<AuthProvider>().token;
+          provider.parse(video.awemeId, token: authToken);
         },
       ),
     );

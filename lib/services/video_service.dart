@@ -8,18 +8,18 @@ class VideoService {
   final ApiClient _client;
   VideoService(this._client);
   
-  Future<VideoModel> resolveShortLink(String shortLink) async {
+  Future<VideoModel> resolveShortLink(String shortLink, {String? token}) async {
     if (kIsWeb) {
       try {
         // Web端使用后端API处理重定向，避免CORS问题
         const apiBase = 'https://douyin-hono.liyunfei.eu.org';
         final apiUrl = '$apiBase/api/redirect?url=${Uri.encodeComponent(shortLink)}';
-        final data = await _client.getJson(apiUrl);
+        final data = await _client.getJson(apiUrl, token: token);
         
         if (data['success'] == true && data['url'] != null) {
           final result = AwemeExtractor.parse(data['url']);
           if (result.awemeId != null) {
-            return fetchById(result.awemeId!);
+            return fetchById(result.awemeId!, token: token);
           }
         }
         throw Exception('Web重定向API返回无效数据');
@@ -41,7 +41,7 @@ class VideoService {
         // 从重定向后的 URL 中提取 ID
         final result = AwemeExtractor.parse(location);
         if (result.awemeId != null) {
-          return fetchById(result.awemeId!);
+          return fetchById(result.awemeId!, token: token);
         }
       }
       throw Exception('无法解析短链接');
@@ -50,17 +50,19 @@ class VideoService {
     }
   }
 
-  Future<VideoModel> fetchById(String id) async {
-    // 使用 dapi 接口处理 ID 解析
-    const baseUrl = 'https://dapi.liyunfei.eu.org/api/douyin/web/fetch_one_video';
-    final data = await _client.getJson(baseUrl, query: {'aweme_id': id});
+  Future<VideoModel> fetchById(String id, {String? token}) async {
+    // 使用 backend-hono 聚合解析接口
+    const baseUrl = 'https://douyin-hono.liyunfei.eu.org/api/analysis';
+    // 构造一个标准抖音视频链接，后端会从中提取 aweme_id
+    final url = 'https://www.douyin.com/video/$id';
+    final data = await _client.getJson(baseUrl, query: {'url': url}, token: token);
     return VideoModel.fromApi(data);
   }
 
-  Future<VideoModel?> parseInput(String input) async {
+  Future<VideoModel?> parseInput(String input, {String? token}) async {
     final r = AwemeExtractor.parse(input);
-    if (r.awemeId != null) return fetchById(r.awemeId!);
-    if (r.shortLink != null && r.needsRedirect) return resolveShortLink(r.shortLink!);
+    if (r.awemeId != null) return fetchById(r.awemeId!, token: token);
+    if (r.shortLink != null && r.needsRedirect) return resolveShortLink(r.shortLink!, token: token);
     return null;
   }
 }
