@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/video_model.dart';
 import '../models/history_item.dart';
 import '../core/api_client.dart';
+import '../core/aweme_extractor.dart';
 
 class HistoryService {
   static const _fileName = 'history.json';
@@ -53,8 +54,12 @@ class HistoryService {
       final List list = resp['data'] ?? [];
       _remoteItems = list.map((e) {
         final item = HistoryItem.fromJson(e);
+        // 尝试从 URL 中提取 ID，保持与本地解析一致
+        final extract = AwemeExtractor.parse(item.videoUrl);
+        final id = extract.awemeId ?? item.videoUrl;
+        
         return VideoModel(
-          awemeId: item.videoUrl, // Use videoUrl as ID for now
+          awemeId: id,
           title: item.title,
           coverUrl: item.coverUrl,
           author: item.author,
@@ -67,18 +72,14 @@ class HistoryService {
       _useRemote = true;
     } catch (e) {
       print('Load remote history failed: $e');
-      // Fallback to local? Or just show empty/error?
-      // For now, keep _useRemote = false if failed?
-      // But if we are logged in, we expect remote.
     }
   }
 
   Future<void> add(VideoModel model) async {
     if (_useRemote) {
-      // In remote mode, we assume backend saved it.
-      // We can add it to local list for UI consistency or re-fetch.
-      // For now, let's prepend to _remoteItems
-      _remoteItems.removeWhere((e) => e.awemeId == model.awemeId || e.awemeId.contains(model.awemeId));
+      // 远程模式：后端已处理去重（Upsert），前端仅需更新 UI
+      // 移除旧的相同 ID 记录，并将新记录插到最前
+      _remoteItems.removeWhere((e) => e.awemeId == model.awemeId);
       _remoteItems.insert(0, model);
     } else {
       _items.removeWhere((e) => e.awemeId == model.awemeId); // 去重
