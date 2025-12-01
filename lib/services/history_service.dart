@@ -57,6 +57,8 @@ class HistoryService {
           awemeId: item.videoUrl, // Use videoUrl as ID for now
           title: item.title,
           coverUrl: item.coverUrl,
+          author: item.author,
+          authorAvatar: item.authorAvatar,
           // Fill required fields with defaults
           statistics: VideoStatistics(),
           downloadOptions: [],

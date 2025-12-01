@@ -4,6 +4,8 @@ class HistoryItem {
   final String videoUrl;
   final String? title;
   final String? coverUrl;
+  final String? author;
+  final String? authorAvatar;
   final int createdAt;
 
   HistoryItem({
@@ -12,6 +14,8 @@ class HistoryItem {
     required this.videoUrl,
     this.title,
     this.coverUrl,
+    this.author,
+    this.authorAvatar,
     required this.createdAt,
   });
 
@@ -22,6 +26,8 @@ class HistoryItem {
       videoUrl: json['video_url'],
       title: json['title'],
       coverUrl: json['cover_url'],
+      author: json['author'],
+      authorAvatar: json['author_avatar'],
       createdAt: json['created_at'],
     );
   }
