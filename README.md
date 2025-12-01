@@ -70,11 +70,11 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "douyin_hono_db"
-database_id = "0063b51c-3ca5-4ce2-8656-dce2ca16f473"
+database_id = ""
 
 [[kv_namespaces]]
 binding = "AUTH_KV"
-id = "872ff27c06e445dc988cc37f2770eee3"
+id = ""
 ```
 
 > ⚠️ **绑定解绑问题**  

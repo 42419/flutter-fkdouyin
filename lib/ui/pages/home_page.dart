@@ -32,9 +32,12 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _history.load().then((_) {
-      if (mounted) setState(() {});
-    });
+    final auth = context.read<AuthProvider>();
+    auth.addListener(_handleAuthChange);
+    
+    // Initial load
+    _handleAuthChange();
+    
     _downloadService = DownloadService(RateLimiter(maxRequests: 5));
     
     // Check for updates
@@ -45,10 +48,25 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    context.read<AuthProvider>().removeListener(_handleAuthChange);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
+
+  void _handleAuthChange() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isAuthed) {
+      _history.loadRemote(auth.token!).then((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _history.load().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
 
   void _parse() async {
     final provider = context.read<VideoProvider>();

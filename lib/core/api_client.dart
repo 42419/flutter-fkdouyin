@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
-  static const String base = 'https://dapi.liyunfei.eu.org/api';
+  static const String base = 'https://douyin-hono.liyunfei.eu.org/api';
 
   Future<Map<String, dynamic>> getJson(String url, {Map<String, String>? query, String? token}) async {
     final uri = Uri.parse(url).replace(queryParameters: query);
@@ -21,5 +21,12 @@ class ApiClient {
       return jsonDecode(decodedBody) as Map<String, dynamic>;
     }
     throw Exception('请求失败 ${resp.statusCode}: ${resp.reasonPhrase}');
+  }
+
+  Future<Map<String, dynamic>> getHistory({int page = 1, int limit = 10, required String token}) async {
+    return getJson('$base/history', query: {
+      'page': page.toString(),
+      'limit': limit.toString(),
+    }, token: token);
   }
 }
