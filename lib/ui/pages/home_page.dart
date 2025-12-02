@@ -416,6 +416,7 @@ class _HomePageState extends State<HomePage> {
         body: CustomScrollView(
           slivers: [
           SliverAppBar(
+            automaticallyImplyLeading: false,
             floating: true,
             pinned: true,
             title: const Text('视频下载工具', style: TextStyle(fontWeight: FontWeight.bold)),

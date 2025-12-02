@@ -22,7 +22,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1500),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -59,7 +59,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
   void _navigate(bool isAuthed) {
     if (_navigated) return;
     _navigated = true;
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => 
           isAuthed ? const HomePage() : const LoginPage(),
@@ -68,6 +68,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
         },
         transitionDuration: const Duration(milliseconds: 500),
       ),
+      (route) => false,
     );
   }
 
