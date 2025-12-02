@@ -11,8 +11,23 @@ import 'web_reload_helper.dart';
 
 class UpdateService {
   static const String _releasesUrl = 'https://api.github.com/repos/42419/flutter-fkdouyin/releases/latest';
+  static const String _allReleasesUrl = 'https://api.github.com/repos/42419/flutter-fkdouyin/releases';
   static const String _proxyUrl = 'https://gh-proxy.org/';
   static const String _kIgnoreVersion = 'ignore_version';
+
+  Future<List<Map<String, dynamic>>> getReleases() async {
+    try {
+      final dio = Dio();
+      final response = await dio.get(_allReleasesUrl);
+      
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch releases: $e');
+    }
+    return [];
+  }
 
   Future<void> checkUpdate(BuildContext context, {bool showNoUpdateToast = false}) async {
     try {
