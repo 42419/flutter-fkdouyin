@@ -249,26 +249,31 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
             ),
 
             // Content Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30),
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionTitle(context, '应用简介'),
-                      const SizedBox(height: 16),
-                      _buildInfoCard(context),
-                      const SizedBox(height: 32),
-                      _buildSectionTitle(context, '主要功能'),
-                      const SizedBox(height: 16),
-                      _buildFeaturesGrid(context),
-                      const SizedBox(height: 40),
-                      _buildFooter(context),
-                      const SizedBox(height: 20),
-                    ],
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionTitle(context, '应用简介'),
+                          const SizedBox(height: 16),
+                          _buildInfoCard(context),
+                          const SizedBox(height: 32),
+                          _buildSectionTitle(context, '主要功能'),
+                          const SizedBox(height: 16),
+                          _buildFeaturesGrid(context),
+                          const SizedBox(height: 40),
+                          _buildFooter(context),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

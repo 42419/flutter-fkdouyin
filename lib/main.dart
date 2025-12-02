@@ -60,6 +60,15 @@ class FKDouyinApp extends StatelessWidget {
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+                TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+                TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+              },
+            ),
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
@@ -83,6 +92,15 @@ class FKDouyinApp extends StatelessWidget {
               color: Color(0xFF3D3A3E),
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+            ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+                TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+                TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+              },
             ),
           ),
           routes: {

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
+import 'dart:ui' as ui;
 import 'package:provider/provider.dart';
 import '../../providers/video_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -15,6 +15,7 @@ import 'about_page.dart';
 
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/rendering.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -28,6 +29,8 @@ class _HomePageState extends State<HomePage> {
   final _history = HistoryService();
   late DownloadService _downloadService;
   bool _downloading = false;
+  final GlobalKey _repaintKey = GlobalKey();
+  final GlobalKey _themeButtonKey = GlobalKey();
 
   @override
   void initState() {
@@ -67,6 +70,58 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _toggleThemeWithAnimation() async {
+    final themeProvider = context.read<ThemeProvider>();
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // 1. 获取按钮位置
+    final RenderBox? buttonBox = _themeButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (buttonBox == null) {
+      themeProvider.toggleTheme();
+      return;
+    }
+    final Offset buttonPosition = buttonBox.localToGlobal(Offset.zero);
+    final Size buttonSize = buttonBox.size;
+    final Offset center = buttonPosition + Offset(buttonSize.width / 2, buttonSize.height / 2);
+
+    // 2. 截图当前界面 (旧主题)
+    final RenderRepaintBoundary? boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) {
+      themeProvider.toggleTheme();
+      return;
+    }
+
+    try {
+      final ui.Image image = await boundary.toImage(pixelRatio: MediaQuery.of(context).devicePixelRatio);
+      
+      // 3. 切换主题
+      themeProvider.toggleTheme();
+      
+      // 4. 插入 Overlay
+      if (!mounted) return;
+      final overlayState = Overlay.of(context);
+      late OverlayEntry overlayEntry;
+      
+      overlayEntry = OverlayEntry(
+        builder: (context) {
+          return _ThemeTransitionOverlay(
+            image: image,
+            center: center,
+            isDarkToLight: isDark,
+            onFinished: () {
+              overlayEntry.remove();
+            },
+          );
+        },
+      );
+      
+      overlayState.insert(overlayEntry);
+      
+    } catch (e) {
+      // 如果截图失败，直接切换
+      themeProvider.toggleTheme();
+    }
+  }
 
   void _parse() async {
     final provider = context.read<VideoProvider>();
@@ -316,19 +371,20 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final provider = context.watch<VideoProvider>();
     final video = provider.current;
-    final themeProvider = context.watch<ThemeProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
+    return RepaintBoundary(
+      key: _repaintKey,
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
           SliverAppBar(
             floating: true,
             pinned: true,
             title: const Text('视频下载工具', style: TextStyle(fontWeight: FontWeight.bold)),
             flexibleSpace: ClipRect(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                 child: Container(
                   color: Colors.transparent,
                 ),
@@ -336,8 +392,9 @@ class _HomePageState extends State<HomePage> {
             ),
             actions: [
               IconButton(
+                key: _themeButtonKey,
                 icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-                onPressed: () => themeProvider.toggleTheme(),
+                onPressed: () => _toggleThemeWithAnimation(),
                 tooltip: '切换主题',
               ),
               PopupMenuButton<String>(
@@ -568,16 +625,33 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            if (video != null)
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: _VideoDetailCard(
-                  video: video,
-                  progress: provider.progress,
-                  onDownload: () => _showDownloadOptions(video),
-                  isDownloading: _downloading,
-                ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 600),
+                switchInCurve: Curves.easeOutBack,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return SizeTransition(
+                    sizeFactor: animation,
+                    axisAlignment: -1.0,
+                    child: FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    ),
+                  );
+                },
+                child: video != null
+                    ? Padding(
+                        key: ValueKey(video.awemeId),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: _VideoDetailCard(
+                          video: video,
+                          progress: provider.progress,
+                          onDownload: () => _showDownloadOptions(video),
+                          isDownloading: _downloading,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ),
           SliverToBoxAdapter(
@@ -616,7 +690,7 @@ class _HomePageState extends State<HomePage> {
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
-    );
+    ));
   }
 
   Widget _featurePill(BuildContext context, IconData icon, String label, Color color) {
@@ -884,5 +958,104 @@ class _HistoryCard extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+class _ThemeTransitionOverlay extends StatefulWidget {
+  final ui.Image image;
+  final Offset center;
+  final bool isDarkToLight;
+  final VoidCallback onFinished;
+
+  const _ThemeTransitionOverlay({
+    required this.image,
+    required this.center,
+    required this.isDarkToLight,
+    required this.onFinished,
+  });
+
+  @override
+  State<_ThemeTransitionOverlay> createState() => _ThemeTransitionOverlayState();
+}
+
+class _ThemeTransitionOverlayState extends State<_ThemeTransitionOverlay> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
+    
+    _controller.forward().then((_) {
+      widget.onFinished();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return ClipPath(
+          clipper: _CircularRevealClipper(
+            fraction: _animation.value,
+            center: widget.center,
+            isDarkToLight: widget.isDarkToLight,
+          ),
+          child: RawImage(
+            image: widget.image,
+            fit: BoxFit.cover,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CircularRevealClipper extends CustomClipper<Path> {
+  final double fraction;
+  final Offset center;
+  final bool isDarkToLight;
+
+  _CircularRevealClipper({
+    required this.fraction,
+    required this.center,
+    required this.isDarkToLight,
+  });
+
+  @override
+  Path getClip(Size size) {
+    final Path path = Path();
+    final double maxRadius = size.longestSide * 1.5;
+    
+    if (isDarkToLight) {
+      // Dark -> Light: Shrink Old (Overlay) to center
+      final double radius = maxRadius * (1.0 - fraction);
+      path.addOval(Rect.fromCircle(center: center, radius: radius));
+    } else {
+      // Light -> Dark: Expand New (Underlying) from center (Hole in Overlay)
+      final double radius = maxRadius * fraction;
+      path.addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+      path.addOval(Rect.fromCircle(center: center, radius: radius));
+      path.fillType = PathFillType.evenOdd;
+    }
+    
+    return path;
+  }
+
+  @override
+  bool shouldReclip(_CircularRevealClipper oldClipper) {
+    return oldClipper.fraction != fraction || oldClipper.isDarkToLight != isDarkToLight;
   }
 }
