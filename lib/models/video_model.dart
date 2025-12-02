@@ -40,6 +40,7 @@ class VideoStatistics {
 }
 
 class VideoModel {
+  final int? id; // Database ID for remote history
   final String awemeId;
   final String? title;
   final String? author;
@@ -55,6 +56,7 @@ class VideoModel {
   final List<DownloadOption> downloadOptions;
 
   VideoModel({
+    this.id,
     required this.awemeId,
     this.title,
     this.author,
@@ -112,6 +114,7 @@ class VideoModel {
     }
 
     return VideoModel(
+      id: null, // Not available from direct API fetch
       awemeId: (videoDetail['aweme_id'] ?? videoDetail['id'] ?? '').toString(),
       title: videoDetail['desc']?.toString(),
       author: authorInfo['nickname']?.toString(),
@@ -130,6 +133,7 @@ class VideoModel {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'aweme_id': awemeId,
       'title': title,
       'author': author,
@@ -186,6 +190,7 @@ class VideoModel {
     }
 
     return VideoModel(
+      id: json['id'],
       awemeId: json['aweme_id'] ?? '',
       title: json['title'],
       author: json['author'],

@@ -362,8 +362,45 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (confirmed == true) {
-      await _history.clear();
-      setState(() {});
+      try {
+        await _history.clear();
+        setState(() {});
+      } catch (e) {
+        if (mounted) {
+          Fluttertoast.showToast(msg: '清空失败: $e');
+        }
+      }
+    }
+  }
+
+  void _deleteHistoryItem(VideoModel item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除记录'),
+        content: const Text('确定要删除这条记录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _history.delete(item);
+        setState(() {});
+      } catch (e) {
+        if (mounted) {
+          Fluttertoast.showToast(msg: '删除失败: $e');
+        }
+      }
     }
   }
 
@@ -680,7 +717,10 @@ class _HomePageState extends State<HomePage> {
                   final item = _history.items[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: _HistoryCard(video: item),
+                    child: _HistoryCard(
+                      video: item,
+                      onDelete: () => _deleteHistoryItem(item),
+                    ),
                   );
                 },
                 childCount: _history.items.length,
@@ -918,7 +958,9 @@ class _VideoDetailCard extends StatelessWidget {
 
 class _HistoryCard extends StatelessWidget {
   final VideoModel video;
-  const _HistoryCard({required this.video});
+  final VoidCallback? onDelete;
+
+  const _HistoryCard({required this.video, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -946,7 +988,18 @@ class _HistoryCard extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         subtitle: Text(video.author ?? '未知作者'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
+                onPressed: onDelete,
+                tooltip: '删除',
+              ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
         onTap: () {
           final provider = context.read<VideoProvider>();
           if (provider.loading) {

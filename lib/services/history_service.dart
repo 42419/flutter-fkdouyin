@@ -14,6 +14,7 @@ class HistoryService {
   List<VideoModel> _items = [];
   List<VideoModel> _remoteItems = [];
   bool _useRemote = false;
+  String? _token;
 
   List<VideoModel> get items => _useRemote ? List.unmodifiable(_remoteItems) : List.unmodifiable(_items);
 
@@ -48,6 +49,7 @@ class HistoryService {
   }
 
   Future<void> loadRemote(String token, {int page = 1}) async {
+    _token = token;
     try {
       final client = ApiClient();
       final resp = await client.getHistory(page: page, token: token);
@@ -59,6 +61,7 @@ class HistoryService {
         final id = extract.awemeId ?? item.videoUrl;
         
         return VideoModel(
+          id: item.id,
           awemeId: id,
           title: item.title,
           coverUrl: item.coverUrl,
@@ -81,6 +84,22 @@ class HistoryService {
       // 移除旧的相同 ID 记录，并将新记录插到最前
       _remoteItems.removeWhere((e) => e.awemeId == model.awemeId);
       _remoteItems.insert(0, model);
+      
+      // 重新加载以获取最新的 ID (因为后端是异步写入，可能需要一点延迟，或者直接重新加载)
+      // 为了用户体验，先展示，后台静默刷新
+      if (_token != null) {
+        // 延迟一点时间确保后端写入完成
+        Future.delayed(const Duration(milliseconds: 500), () {
+          loadRemote(_token!).then((_) {
+             // 通知监听者？目前 HistoryService 没有 notifyListeners
+             // 但 HomePage 会在 build 时读取 items。
+             // 如果 HomePage 没有 setState，UI 不会变。
+             // 这里暂时不处理自动刷新 UI ID 的问题，用户下次进入或刷新时会有 ID。
+             // 如果用户立即删除，可能会失败，但这是小概率事件。
+             // 或者我们可以让 add 返回 Future，并在 HomePage 等待后 setState。
+          });
+        });
+      }
     } else {
       _items.removeWhere((e) => e.awemeId == model.awemeId); // 去重
       _items.insert(0, model); // 最近的前排
@@ -88,11 +107,34 @@ class HistoryService {
     }
   }
 
+  Future<void> delete(VideoModel item) async {
+    if (_useRemote) {
+      if (item.id != null && _token != null) {
+        try {
+          await ApiClient().deleteHistoryItem(item.id!, _token!);
+          _remoteItems.removeWhere((e) => e.id == item.id);
+        } catch (e) {
+          print('Delete remote history item failed: $e');
+          rethrow;
+        }
+      }
+    } else {
+      _items.removeWhere((e) => e.awemeId == item.awemeId);
+      await _persist();
+    }
+  }
+
   Future<void> clear() async {
     if (_useRemote) {
-      // Remote clear not implemented in backend yet?
-      // Assuming we just clear local view for now or implement API
-      _remoteItems.clear();
+      if (_token != null) {
+        try {
+          await ApiClient().clearHistory(_token!);
+          _remoteItems.clear();
+        } catch (e) {
+          print('Clear remote history failed: $e');
+          rethrow;
+        }
+      }
     } else {
       _items.clear();
       await _persist();

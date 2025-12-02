@@ -29,4 +29,26 @@ class ApiClient {
       'limit': limit.toString(),
     }, token: token);
   }
+
+  Future<void> deleteHistoryItem(int id, String token) async {
+    final uri = Uri.parse('$base/history/$id');
+    final headers = <String, String>{
+      'Authorization': 'Bearer $token',
+    };
+    final resp = await http.delete(uri, headers: headers);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw Exception('删除失败 ${resp.statusCode}: ${resp.reasonPhrase}');
+    }
+  }
+
+  Future<void> clearHistory(String token) async {
+    final uri = Uri.parse('$base/history');
+    final headers = <String, String>{
+      'Authorization': 'Bearer $token',
+    };
+    final resp = await http.delete(uri, headers: headers);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw Exception('清空失败 ${resp.statusCode}: ${resp.reasonPhrase}');
+    }
+  }
 }
