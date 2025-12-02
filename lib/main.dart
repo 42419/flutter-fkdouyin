@@ -9,6 +9,7 @@ import 'providers/theme_provider.dart';
 import 'providers/auth_provider.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/pages/login_page.dart';
+import 'ui/pages/splash_page.dart';
 
 void main() => runApp(const FKDouyinApp());
 
@@ -106,8 +107,9 @@ class FKDouyinApp extends StatelessWidget {
           routes: {
             '/login': (_) => const LoginPage(),
             '/': (_) => const AuthGate(),
+            '/splash': (_) => const SplashPage(),
           },
-          initialRoute: '/',
+          initialRoute: '/splash',
         ),
       ),
     );
