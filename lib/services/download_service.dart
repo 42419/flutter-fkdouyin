@@ -122,7 +122,12 @@ class DownloadService {
     final savePath = '${appDocDir.path}/$name';
 
     // 移动端/桌面端直接下载，不走代理
-    const userAgent = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+    // 使用更通用的移动端 User-Agent，并添加 Referer 防盗链
+    const userAgent = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36';
+    final headers = {
+      'User-Agent': userAgent,
+      'Referer': 'https://www.douyin.com/',
+    };
 
     if (Platform.isAndroid || Platform.isIOS) {
        final completer = Completer<void>();
@@ -132,10 +137,11 @@ class DownloadService {
             url: url,
             savedDir: appDocDir.path,
             fileName: name,
-            headers: {'User-Agent': userAgent},
+            headers: headers,
             showNotification: true,
             openFileFromNotification: false,
             saveInPublicStorage: false,
+            allowCellular: true,
          );
          
          if (taskId != null) {
@@ -211,7 +217,7 @@ class DownloadService {
           followRedirects: true, 
           responseType: ResponseType.bytes, 
           validateStatus: (s) => s != null && s < 500,
-          headers: {'User-Agent': userAgent},
+          headers: headers,
         ),
       );
 
