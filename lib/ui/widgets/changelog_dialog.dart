@@ -22,7 +22,15 @@ class _ChangelogDialogState extends State<ChangelogDialog> {
     try {
       final releases = await UpdateService().getReleases();
       final parsedReleases = releases.map((release) {
-        final body = release['body'] as String? ?? '';
+        var body = release['body'] as String? ?? '';
+        
+        // 过滤 iOS 安装说明
+        if (body.contains('iOS 安装说明')) {
+           body = body.replaceAll(RegExp(r'---*\s*\*\*iOS 安装说明\*\*[\s\S]*$'), '');
+           body = body.replaceAll(RegExp(r'\*\*iOS 安装说明\*\*[\s\S]*$'), '');
+           body = body.trim();
+        }
+
         final changes = <Map<String, String>>[];
         
         // Simple parsing logic
@@ -48,6 +56,25 @@ class _ChangelogDialogState extends State<ChangelogDialog> {
               'type': type,
               'content': content,
             });
+          } else {
+             // 尝试匹配 "type: content" 格式，即使没有 bullet point
+             final match = RegExp(r'^(feat|fix|optimize|perf|refactor|docs|style|test|chore)(\(.*\))?:').firstMatch(trimmed.toLowerCase());
+             if (match != null) {
+                String type = 'other';
+                final typeStr = match.group(1)?.toLowerCase() ?? '';
+                if (['feat'].contains(typeStr) || trimmed.contains('新增')) {
+                  type = 'feat';
+                } else if (['fix'].contains(typeStr) || trimmed.contains('修复')) {
+                  type = 'fix';
+                } else if (['optimize', 'perf'].contains(typeStr) || trimmed.contains('优化')) {
+                  type = 'optimize';
+                }
+                
+                changes.add({
+                  'type': type,
+                  'content': trimmed,
+                });
+             }
           }
         }
 

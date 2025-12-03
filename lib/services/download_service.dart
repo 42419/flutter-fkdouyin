@@ -11,6 +11,12 @@ import 'package:flutter_downloader/flutter_downloader.dart';
 import '../core/rate_limiter.dart';
 import 'web_download_helper.dart';
 
+@pragma('vm:entry-point')
+void downloadCallback(String id, int status, int progress) {
+  final SendPort? send = IsolateNameServer.lookupPortByName('downloader_send_port');
+  send?.send([id, status, progress]);
+}
+
 class DownloadService {
   final Dio _dio = Dio();
   final RateLimiter limiter;
@@ -70,15 +76,14 @@ class DownloadService {
     IsolateNameServer.removePortNameMapping('downloader_send_port');
   }
 
-  @pragma('vm:entry-point')
-  static void downloadCallback(String id, int status, int progress) {
-    final SendPort? send = IsolateNameServer.lookupPortByName('downloader_send_port');
-    send?.send([id, status, progress]);
-  }
-
   Future<bool> requestPermission() async {
     if (kIsWeb) return true;
     try {
+      // Android 13+ 需要通知权限
+      if (Platform.isAndroid) {
+        await Permission.notification.request();
+      }
+      
       final hasAccess = await Gal.hasAccess();
       if (hasAccess) return true;
       return await Gal.requestAccess();
@@ -110,10 +115,10 @@ class DownloadService {
       throw Exception('未授予保存到相册的权限');
     }
 
-    // 2. 下载到临时目录 (避免 Android 10+ 存储权限问题)
-    final tempDir = await getTemporaryDirectory();
+    // 2. 下载到应用文档目录 (更安全，避免被系统清理)
+    final appDocDir = await getApplicationDocumentsDirectory();
     final name = filename ?? 'douyin_${DateTime.now().millisecondsSinceEpoch}.mp4';
-    final tempPath = '${tempDir.path}/$name';
+    final savePath = '${appDocDir.path}/$name';
 
     // 移动端/桌面端直接下载，不走代理
     const userAgent = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
@@ -124,7 +129,7 @@ class DownloadService {
        try {
          final taskId = await FlutterDownloader.enqueue(
             url: url,
-            savedDir: tempDir.path,
+            savedDir: appDocDir.path,
             fileName: name,
             headers: {'User-Agent': userAgent},
             showNotification: true,
@@ -134,13 +139,46 @@ class DownloadService {
          
          if (taskId != null) {
             _tasks[taskId] = _DownloadTaskInfo(completer, onProgress);
+            
+            // 启动一个定时器轮询状态，作为回调失效的兜底
+            Timer.periodic(const Duration(seconds: 1), (timer) async {
+              if (completer.isCompleted) {
+                timer.cancel();
+                return;
+              }
+              final tasks = await FlutterDownloader.loadTasksWithRawQuery(query: 'SELECT * FROM task WHERE task_id="$taskId"');
+              if (tasks != null && tasks.isNotEmpty) {
+                final task = tasks.first;
+                if (task.status == DownloadTaskStatus.complete) {
+                   if (!_tasks.containsKey(taskId)) return; // 已经被回调处理了
+                   _tasks[taskId]?.completer.complete();
+                   _tasks.remove(taskId);
+                   timer.cancel();
+                } else if (task.status == DownloadTaskStatus.failed) {
+                   if (!_tasks.containsKey(taskId)) return;
+                   _tasks[taskId]?.completer.completeError(Exception('Download failed (polled)'));
+                   _tasks.remove(taskId);
+                   timer.cancel();
+                } else if (task.status == DownloadTaskStatus.canceled) {
+                   if (!_tasks.containsKey(taskId)) return;
+                   _tasks[taskId]?.completer.completeError(Exception('Download canceled (polled)'));
+                   _tasks.remove(taskId);
+                   timer.cancel();
+                } else if (task.status == DownloadTaskStatus.running) {
+                   if (onProgress != null) {
+                     onProgress(task.progress);
+                   }
+                }
+              }
+            });
+
             await completer.future;
             
             // 3. 保存到相册
-            await Gal.putVideo(tempPath, album: 'fkdouyin');
+            await Gal.putVideo(savePath, album: 'fkdouyin');
             
             // 4. 清理临时文件
-            final file = File(tempPath);
+            final file = File(savePath);
             if (await file.exists()) {
               await file.delete();
             }
@@ -149,7 +187,7 @@ class DownloadService {
          }
        } catch (e) {
           // 清理临时文件
-          final file = File(tempPath);
+          final file = File(savePath);
           if (await file.exists()) {
             await file.delete();
           }
@@ -161,7 +199,7 @@ class DownloadService {
     try {
       final resp = await _dio.download(
         url,
-        tempPath,
+        savePath,
         onReceiveProgress: (r, t) {
           if (t > 0 && onProgress != null) {
             onProgress(((r / t) * 100).clamp(0, 100).toInt());
@@ -178,16 +216,16 @@ class DownloadService {
       if (resp.statusCode != 200) throw Exception('下载失败: ${resp.statusCode}');
 
       // 3. 保存到相册
-      await Gal.putVideo(tempPath, album: 'fkdouyin');
+      await Gal.putVideo(savePath, album: 'fkdouyin');
 
       // 4. 清理临时文件
-      final file = File(tempPath);
+      final file = File(savePath);
       if (await file.exists()) {
         await file.delete();
       }
     } catch (e) {
       // 清理临时文件
-      final file = File(tempPath);
+      final file = File(savePath);
       if (await file.exists()) {
         await file.delete();
       }
