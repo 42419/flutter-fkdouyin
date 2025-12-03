@@ -59,6 +59,7 @@ class DownloadService {
         }
 
         if (status == DownloadTaskStatus.complete.index) {
+          task.onProgress?.call(100); // 确保进度更新为100%
           task.completer.complete();
           _tasks.remove(id);
         } else if (status == DownloadTaskStatus.failed.index) {
@@ -141,7 +142,7 @@ class DownloadService {
             _tasks[taskId] = _DownloadTaskInfo(completer, onProgress);
             
             // 启动一个定时器轮询状态，作为回调失效的兜底
-            Timer.periodic(const Duration(seconds: 1), (timer) async {
+            Timer.periodic(const Duration(milliseconds: 200), (timer) async {
               if (completer.isCompleted) {
                 timer.cancel();
                 return;
@@ -151,6 +152,7 @@ class DownloadService {
                 final task = tasks.first;
                 if (task.status == DownloadTaskStatus.complete) {
                    if (!_tasks.containsKey(taskId)) return; // 已经被回调处理了
+                   onProgress?.call(100); // 确保进度更新为100%
                    _tasks[taskId]?.completer.complete();
                    _tasks.remove(taskId);
                    timer.cancel();

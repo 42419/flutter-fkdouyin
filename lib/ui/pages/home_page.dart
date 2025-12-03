@@ -179,7 +179,10 @@ class _HomePageState extends State<HomePage> {
         );
       }
     } finally {
-      if (mounted) setState(() => _downloading = false);
+      if (mounted) {
+        setState(() => _downloading = false);
+        context.read<VideoProvider>().setDownloadProgress(0);
+      }
     }
   }
 
@@ -889,9 +892,17 @@ class _VideoDetailCard extends StatelessWidget {
                         ),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: progress / 100,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween<double>(begin: 0, end: progress / 100),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                            builder: (context, value, child) {
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: value,
+                                child: child,
+                              );
+                            },
                             child: Container(
                               width: constraints.maxWidth,
                               height: 24,
