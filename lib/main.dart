@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:universal_io/io.dart';
+import 'package:flutter/foundation.dart';
 import 'core/rate_limiter.dart';
 import 'services/video_service.dart';
 import 'services/auth_service.dart';
@@ -11,7 +14,18 @@ import 'ui/pages/home_page.dart';
 import 'ui/pages/login_page.dart';
 import 'ui/pages/splash_page.dart';
 
-void main() => runApp(const FKDouyinApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    await FlutterDownloader.initialize(
+      debug: true,
+      ignoreSsl: true
+    );
+  }
+
+  runApp(const FKDouyinApp());
+}
 
 class FKDouyinApp extends StatelessWidget {
   const FKDouyinApp({super.key});

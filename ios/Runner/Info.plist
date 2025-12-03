@@ -61,6 +61,11 @@
 		<array>
 			<string>UIInterfaceOrientationPortrait</string>
 		</array>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>fetch</string>
+			<string>processing</string>
+		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
 	</dict>

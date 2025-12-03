@@ -51,6 +51,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _downloadService.dispose();
     context.read<AuthProvider>().removeListener(_handleAuthChange);
     _controller.dispose();
     _focusNode.dispose();
