@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:universal_io/io.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/update_service.dart';
 import '../widgets/changelog_dialog.dart';
@@ -14,6 +17,7 @@ class AboutPage extends StatefulWidget {
 
 class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMixin {
   String _version = '';
+  String _deviceInfo = '';
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -22,6 +26,7 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     _loadVersion();
+    _loadDeviceInfo();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -51,6 +56,43 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
     if (mounted) {
       setState(() {
         _version = info.version;
+      });
+    }
+  }
+
+  Future<void> _loadDeviceInfo() async {
+    final deviceInfo = DeviceInfoPlugin();
+    String info = '';
+    try {
+      if (kIsWeb) {
+        final webBrowserInfo = await deviceInfo.webBrowserInfo;
+        info = 'Web ${webBrowserInfo.browserName.name}';
+      } else if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        info = 'Android ${androidInfo.version.release} (SDK ${androidInfo.version.sdkInt})\n'
+            '${androidInfo.manufacturer} ${androidInfo.model}\n'
+            'Arch: ${androidInfo.supportedAbis.first}';
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        info = '${iosInfo.systemName} ${iosInfo.systemVersion}\n'
+            '${iosInfo.name} (${iosInfo.model})';
+      } else if (Platform.isWindows) {
+        final windowsInfo = await deviceInfo.windowsInfo;
+        info = 'Windows ${windowsInfo.majorVersion}.${windowsInfo.minorVersion}';
+      } else if (Platform.isMacOS) {
+        final macOsInfo = await deviceInfo.macOsInfo;
+        info = 'macOS ${macOsInfo.majorVersion}.${macOsInfo.minorVersion}.${macOsInfo.patchVersion}\n${macOsInfo.model}';
+      } else if (Platform.isLinux) {
+        final linuxInfo = await deviceInfo.linuxInfo;
+        info = 'Linux ${linuxInfo.name} ${linuxInfo.versionId}';
+      }
+    } catch (e) {
+      info = 'Unknown Device';
+    }
+
+    if (mounted) {
+      setState(() {
+        _deviceInfo = info;
       });
     }
   }
@@ -477,6 +519,19 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
             color: Theme.of(context).disabledColor.withOpacity(0.5),
           ),
         ),
+        if (_deviceInfo.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Text(
+              _deviceInfo,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                color: Theme.of(context).disabledColor.withOpacity(0.3),
+                height: 1.5,
+              ),
+            ),
+          ),
       ],
     );
   }

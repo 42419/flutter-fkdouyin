@@ -1,5 +1,7 @@
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:universal_io/io.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -56,15 +58,43 @@ class UpdateService {
         // Find download URL
         String downloadUrl = '';
         if (data['assets'] != null && (data['assets'] as List).isNotEmpty) {
-          // Try to find apk asset
           final assets = data['assets'] as List;
-          final apkAsset = assets.firstWhere(
-            (element) => element['name'].toString().endsWith('.apk'),
-            orElse: () => null,
-          );
+          Map<String, dynamic>? targetAsset;
+
+          // 尝试根据架构匹配 APK
+          if (!kIsWeb && Platform.isAndroid) {
+            try {
+              final androidInfo = await DeviceInfoPlugin().androidInfo;
+              final abis = androidInfo.supportedAbis;
+              
+              if (abis.isNotEmpty) {
+                // 优先匹配首选架构
+                for (final abi in abis) {
+                  targetAsset = assets.firstWhere(
+                    (element) {
+                      final name = element['name'].toString().toLowerCase();
+                      return name.endsWith('.apk') && name.contains(abi.toLowerCase());
+                    },
+                    orElse: () => null,
+                  );
+                  if (targetAsset != null) break;
+                }
+              }
+            } catch (e) {
+              debugPrint('Failed to get device info: $e');
+            }
+          }
+
+          // 如果没找到特定架构的，或者不是 Android，尝试找通用 APK 或者任意 APK
+          if (targetAsset == null) {
+            targetAsset = assets.firstWhere(
+              (element) => element['name'].toString().endsWith('.apk'),
+              orElse: () => null,
+            );
+          }
           
-          if (apkAsset != null) {
-            downloadUrl = _proxyUrl + apkAsset['browser_download_url'];
+          if (targetAsset != null) {
+            downloadUrl = _proxyUrl + targetAsset['browser_download_url'];
           }
         }
         

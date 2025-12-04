@@ -23,25 +23,11 @@ jobs:
       - name: Calculate Version
         id: ver
         run: |
-          git fetch --tags
-          LAST_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "")
           YAML_VER=$(grep -E '^version:' pubspec.yaml | head -n1 | awk '{print $2}' | cut -d'+' -f1)
           if [ -z "$YAML_VER" ]; then YAML_VER="1.0.0"; fi
           
-          if [ -z "$LAST_TAG" ]; then
-            NEW_VER="$YAML_VER"
-          else
-            TAG_VER=${LAST_TAG#v}
-            if [ "$(printf '%s\n%s' "$TAG_VER" "$YAML_VER" | sort -V | tail -n1)" = "$YAML_VER" ] && [ "$TAG_VER" != "$YAML_VER" ]; then
-               NEW_VER="$YAML_VER"
-            else
-               IFS='.' read -r MAJ MIN PAT <<< "$TAG_VER"
-               NEW_PAT=$((PAT + 1))
-               NEW_VER="${MAJ}.${MIN}.${NEW_PAT}"
-            fi
-          fi
-          echo "Calculated version: $NEW_VER"
-          echo "version_name=$NEW_VER" >> $GITHUB_OUTPUT
+          echo "Calculated version: $YAML_VER"
+          echo "version_name=$YAML_VER" >> $GITHUB_OUTPUT
       
       - name: Generate changelog
         id: log
@@ -82,7 +68,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build APK
-        run: flutter build apk --release --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ github.run_number }}
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: apk
