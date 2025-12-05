@@ -608,10 +608,20 @@ class _HomePageState extends State<HomePage> {
                           child: TextField(
                             controller: _controller,
                             focusNode: _focusNode,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: '粘贴抖音视频链接...',
                               border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.content_paste_rounded, size: 20),
+                                tooltip: '粘贴',
+                                onPressed: () async {
+                                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                                  if (data?.text != null) {
+                                    _controller.text = data!.text!;
+                                  }
+                                },
+                              ),
                             ),
                             onSubmitted: (_) => _parse(),
                           ),
