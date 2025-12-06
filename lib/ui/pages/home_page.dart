@@ -12,6 +12,7 @@ import '../../services/update_service.dart';
 import '../../core/rate_limiter.dart';
 import '../../models/video_model.dart';
 import 'about_page.dart';
+import 'package:web_smooth_scroll/web_smooth_scroll.dart';
 
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -31,10 +32,12 @@ class _HomePageState extends State<HomePage> {
   bool _downloading = false;
   final GlobalKey _repaintKey = GlobalKey();
   final GlobalKey _themeButtonKey = GlobalKey();
+  late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
     final auth = context.read<AuthProvider>();
     auth.addListener(_handleAuthChange);
     
@@ -51,6 +54,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _downloadService.dispose();
     context.read<AuthProvider>().removeListener(_handleAuthChange);
     _controller.dispose();
@@ -414,11 +418,7 @@ class _HomePageState extends State<HomePage> {
     final video = provider.current;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return RepaintBoundary(
-      key: _repaintKey,
-      child: Scaffold(
-        body: CustomScrollView(
-          slivers: [
+    final slivers = [
           SliverAppBar(
             automaticallyImplyLeading: false,
             floating: true,
@@ -743,9 +743,26 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
-        ],
+    ];
+
+    return RepaintBoundary(
+      key: _repaintKey,
+      child: Scaffold(
+        body: kIsWeb
+            ? WebSmoothScroll(
+                controller: _scrollController,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  slivers: slivers,
+                ),
+              )
+            : CustomScrollView(
+                controller: _scrollController,
+                slivers: slivers,
+              ),
       ),
-    ));
+    );
   }
 
   Widget _featurePill(BuildContext context, IconData icon, String label, Color color) {

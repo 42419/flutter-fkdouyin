@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:universal_io/io.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:web_smooth_scroll/web_smooth_scroll.dart';
 import '../../services/update_service.dart';
 import '../widgets/changelog_dialog.dart';
 
@@ -21,10 +22,12 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
     _loadVersion();
     _loadDeviceInfo();
     _controller = AnimationController(
@@ -47,6 +50,7 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -135,9 +139,12 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: Column(
+      body: _buildBody(context, isDark, primaryColor, headerContentColor),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, bool isDark, Color primaryColor, Color headerContentColor) {
+    final content = Column(
           children: [
             // Header Section
             Stack(
@@ -365,8 +372,23 @@ class _AboutPageState extends State<AboutPage> with SingleTickerProviderStateMix
               ),
             ),
           ],
+        );
+
+    if (kIsWeb) {
+      return WebSmoothScroll(
+        controller: _scrollController,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const NeverScrollableScrollPhysics(),
+          child: content,
         ),
-      ),
+      );
+    }
+
+    return SingleChildScrollView(
+      controller: _scrollController,
+      physics: const ClampingScrollPhysics(),
+      child: content,
     );
   }
 
